@@ -1,0 +1,74 @@
+name: Bug Report
+description: Something isn't working as expected
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please fill in as much detail as possible.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug.
+      placeholder: "When I run `inferencehub install`, it fails with..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Run `inferencehub install --config inferencehub.yaml`
+        2. See error...
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Config file (inferencehub.yaml)
+      description: Paste your config — remove any secrets first.
+      render: yaml
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or error output
+      render: shell
+
+  - type: input
+    id: cli_version
+    attributes:
+      label: InferenceHub CLI version
+      placeholder: "e.g. v0.1.0 — run `inferencehub version`"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: cloud
+    attributes:
+      label: Cloud provider / environment
+      options:
+        - AWS EKS
+        - Local / kind
+        - GKE
+        - AKS
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: k8s_version
+    attributes:
+      label: Kubernetes version
+      placeholder: "e.g. 1.31 — run `kubectl version --short`"
