@@ -1,0 +1,47 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "inferencehub.fullname" . }}-litellm-config
+  namespace: {{ include "inferencehub.namespace" . }}
+  labels:
+    {{- include "inferencehub.litellm.labels" . | nindent 4 }}
+data:
+  config.yaml: |
+    model_list:
+    {{- if .Values.litellm.models }}
+      {{- toYaml .Values.litellm.models | nindent 6 }}
+    {{- else }}
+      # No models configured - add models in values.yaml under litellm.models
+      []
+    {{- end }}
+    {{- if or .Values.litellm.litellmSettings .Values.redis.enabled .Values.observability.langfuse.enabled }}
+    litellm_settings:
+      {{- if .Values.observability.langfuse.enabled }}
+      success_callback: ["langfuse"]
+      {{- end }}
+      {{- if .Values.redis.enabled }}
+      # Redis caching configuration
+      cache: true
+      cache_params:
+        type: redis
+        host: {{ include "inferencehub.redis.host" . }}
+        port: {{ include "inferencehub.redis.port" . }}
+        {{- if and .Values.redis.auth.password (not .Values.redis.external.enabled) }}
+        password: {{ .Values.redis.auth.password | quote }}
+        {{- else if and .Values.redis.external.enabled .Values.redis.external.password }}
+        password: {{ .Values.redis.external.password | quote }}
+        {{- end }}
+      {{- end }}
+      {{- if .Values.litellm.litellmSettings }}
+      {{- if .Values.redis.enabled }}
+      {{- $customSettings := omit .Values.litellm.litellmSettings "cache" "cache_params" }}
+      {{- if $customSettings }}
+      # User-defined litellm settings
+      {{- toYaml $customSettings | nindent 6 }}
+      {{- end }}
+      {{- else }}
+      # User-defined litellm settings
+      {{- toYaml .Values.litellm.litellmSettings | nindent 6 }}
+      {{- end }}
+      {{- end }}
+    {{- end }}

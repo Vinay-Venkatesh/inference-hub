@@ -1,0 +1,75 @@
+# Default values for model chart.
+
+global:
+  namespace: ollama
+
+ollama:
+  enabled: true
+  name: ollama
+  replicaCount: 1
+
+  image:
+    repository: ollama/ollama
+    tag: "latest"
+    pullPolicy: IfNotPresent
+
+  model:
+    name: "llama3:8b"
+    pullWaitSeconds: 5
+
+  service:
+    type: ClusterIP
+    port: 11434
+
+  resources:
+    requests:
+      cpu: "2"
+      memory: "10Gi"
+      nvidia.com/gpu: 1
+    limits:
+      cpu: "2"
+      memory: "14Gi"
+      nvidia.com/gpu: 1
+
+  nodeSelector:
+    role: worker-gpu
+
+  tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+
+storage:
+  enabled: true
+  storageClass:
+    name: gp3
+    provisioner: ebs.csi.aws.com
+    parameters:
+      type: gp3
+      fsType: ext4
+    reclaimPolicy: Delete
+    volumeBindingMode: WaitForFirstConsumer
+    allowVolumeExpansion: true
+  
+  pvc:
+    name: ollama-pvc
+    accessModes:
+      - ReadWriteOnce
+    size: 50Gi
+
+nvidiaDevicePlugin:
+  enabled: true
+  namespace: kube-system
+  image:
+    repository: nvcr.io/nvidia/k8s-device-plugin
+    tag: "v0.18.2"
+    pullPolicy: IfNotPresent
+
+  nodeSelector:
+    role: worker-gpu
+
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule

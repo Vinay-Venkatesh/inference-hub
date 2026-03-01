@@ -1,0 +1,37 @@
+{{- if and .Values.postgresql.enabled (not .Values.postgresql.external.enabled) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "inferencehub.fullname" . }}-postgresql-init
+  namespace: {{ include "inferencehub.namespace" . }}
+  labels:
+    {{- include "inferencehub.postgresql.labels" . | nindent 4 }}
+data:
+  init-databases.sh: |
+    #!/bin/bash
+    set -e
+
+    echo "Creating databases and users..."
+
+    # Create openwebui database and user
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+      -- Create openwebui user if it doesn't exist
+      DO \$\$
+      BEGIN
+        IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '{{ .Values.postgresql.auth.username }}') THEN
+          CREATE USER {{ .Values.postgresql.auth.username }} WITH PASSWORD '{{ .Values.postgresql.auth.password }}';
+        END IF;
+      END
+      \$\$;
+
+      -- Create openwebui database if it doesn't exist
+      SELECT 'CREATE DATABASE {{ .Values.postgresql.auth.database }}'
+      WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '{{ .Values.postgresql.auth.database }}')
+      \gexec
+
+      -- Grant privileges
+      GRANT ALL PRIVILEGES ON DATABASE {{ .Values.postgresql.auth.database }} TO {{ .Values.postgresql.auth.username }};
+    EOSQL
+
+    echo "Database initialization complete!"
+{{- end }}

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: model
+description: A Helm chart for deploying Ollama models and Nvidia Device Plugin
+type: application
+version: 0.1.0
+appVersion: "latest"

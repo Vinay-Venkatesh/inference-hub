@@ -1,0 +1,79 @@
+================================================================================
+InferenceHub has been installed successfully!
+================================================================================
+
+Components deployed:
+  - OpenWebUI        (Chat Interface)
+  - LiteLLM          (LLM Gateway)
+  {{- if and .Values.postgresql.enabled (not .Values.postgresql.external.enabled) }}
+  - PostgreSQL        (Database - in-cluster)
+  {{- else }}
+  - PostgreSQL        (Database - external)
+  {{- end }}
+  {{- if and .Values.redis.enabled (not .Values.redis.external.enabled) }}
+  - Redis             (Cache - in-cluster)
+  {{- else }}
+  - Redis             (Cache - external)
+  {{- end }}
+  {{- if .Values.observability.langfuse.enabled }}
+  - Langfuse          (LLM Observability)
+  {{- end }}
+
+--------------------------------------------------------------------------------
+STATUS
+--------------------------------------------------------------------------------
+
+  kubectl get pods -n {{ include "inferencehub.namespace" . }}
+
+Wait for all pods to reach Running state (typically 2-3 minutes).
+
+--------------------------------------------------------------------------------
+ACCESS
+--------------------------------------------------------------------------------
+
+{{- if and .Values.networking.gatewayAPI.enabled .Values.networking.gatewayAPI.hostname }}
+
+  URL: {{ if .Values.networking.gatewayAPI.tls.enabled }}https{{ else }}http{{ end }}://{{ .Values.networking.gatewayAPI.hostname }}
+
+{{- else }}
+
+Port-forward for local access:
+
+  kubectl port-forward -n {{ include "inferencehub.namespace" . }} \
+    svc/{{ include "inferencehub.fullname" . }}-openwebui 8080:{{ .Values.openwebui.service.port }}
+
+  Open: http://localhost:8080
+
+{{- end }}
+
+--------------------------------------------------------------------------------
+CONFIGURED MODELS
+--------------------------------------------------------------------------------
+
+{{- if .Values.litellm.models }}
+Models ({{ len .Values.litellm.models }}):
+{{- range .Values.litellm.models }}
+  - {{ .model_name }}
+{{- end }}
+{{- else }}
+  No models configured. Add models to your config.yaml and upgrade:
+  inferencehub upgrade --config config.yaml
+{{- end }}
+
+--------------------------------------------------------------------------------
+USEFUL COMMANDS
+--------------------------------------------------------------------------------
+
+  # View logs
+  kubectl logs -n {{ include "inferencehub.namespace" . }} -l app.kubernetes.io/component=ui -f
+  kubectl logs -n {{ include "inferencehub.namespace" . }} -l app.kubernetes.io/component=gateway -f
+
+  # Get current values
+  helm get values {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+  # Upgrade after config changes
+  inferencehub upgrade --config config.yaml
+
+================================================================================
+Documentation: https://github.com/Vinay-Venkatesh/inference-hub/blob/main/README.md
+================================================================================

@@ -1,0 +1,20 @@
+{{- if and .Values.networking.gatewayAPI.enabled .Values.networking.gatewayAPI.createReferenceGrant }}
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: {{ include "inferencehub.fullname" . }}-referencegrant
+  namespace: {{ include "inferencehub.namespace" . }}
+  labels:
+    {{- include "inferencehub.labels" . | nindent 4 }}
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      namespace: {{ .Values.networking.gatewayAPI.gatewayRef.namespace }}
+  to:
+    - group: ""
+      kind: Service
+      {{- if .Values.networking.gatewayAPI.referenceGrant.serviceNames }}
+      name: {{ include "inferencehub.fullname" . }}-openwebui
+      {{- end }}
+{{- end }}

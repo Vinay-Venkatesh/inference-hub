@@ -1,0 +1,44 @@
+# Local development values for inferencehub (kind, minikube, Docker Desktop)
+# Use with: helm install inferencehub ./helm/inferencehub -f values-local.yaml
+
+openwebui:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 250m
+      memory: 512Mi
+
+litellm:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 250m
+      memory: 512Mi
+  # Example Ollama model for local testing
+  # Requires Ollama running on the host: https://ollama.ai
+  models:
+    - model_name: llama3
+      litellm_params:
+        model: ollama/llama3:8b
+        api_base: http://host.docker.internal:11434
+
+postgresql:
+  persistence:
+    storageClass: "standard"
+    size: 2Gi
+
+redis:
+  persistence:
+    enabled: false
+
+networking:
+  gatewayAPI:
+    tls:
+      enabled: false
+    gatewayRef:
+      name: "inferencehub-gateway"
+      namespace: "envoy-gateway-system"

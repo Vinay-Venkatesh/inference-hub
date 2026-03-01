@@ -1,0 +1,16 @@
+{{- if and .Values.networking.gatewayAPI.enabled .Values.networking.gatewayAPI.tls.enabled }}
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ include "inferencehub.fullname" . }}-tls
+  namespace: {{ include "inferencehub.namespace" . }}
+  labels:
+    {{- include "inferencehub.labels" . | nindent 4 }}
+spec:
+  secretName: {{ .Values.networking.gatewayAPI.tls.secretName | default "inferencehub-tls" }}
+  issuerRef:
+    name: {{ .Values.networking.gatewayAPI.tls.issuerRef | default "letsencrypt-staging" }}
+    kind: ClusterIssuer
+  dnsNames:
+    - {{ .Values.networking.gatewayAPI.hostname | required ".Values.networking.gatewayAPI.hostname is required when TLS is enabled" | quote }}
+{{- end }}

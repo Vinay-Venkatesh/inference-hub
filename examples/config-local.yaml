@@ -1,0 +1,39 @@
+# InferenceHub configuration for local development with kind + Ollama
+# Install with:
+#   inferencehub install --config config-local.yaml --values helm/inferencehub/values-local.yaml
+#
+# Prerequisites:
+#   1. Create a kind cluster: kind create cluster --name inferencehub
+#   2. Run setup script:
+#      ./scripts/setup-prerequisites.py \
+#        --cluster-name inferencehub \
+#        --domain localhost \
+#        --environment staging \
+#        --skip-aws-lb-controller
+#   3. Start Ollama: OLLAMA_HOST=0.0.0.0:11434 ollama serve
+#   4. Pull a model: ollama pull llama3.2:3b
+#
+# Required env vars:
+#   export LITELLM_MASTER_KEY="sk-local-dev"
+
+clusterName: kind-inferencehub
+domain: localhost
+environment: staging
+namespace: inferencehub
+
+gateway:
+  name: inferencehub-gateway
+  namespace: envoy-gateway-system
+
+models:
+  ollama:
+    - name: llama3
+      model: llama3.2:3b
+      apiBase: http://host.docker.internal:11434
+
+observability:
+  enabled: false
+  langfuse:
+    host: https://cloud.langfuse.com
+    publicKey: "${LANGFUSE_PUBLIC_KEY}"
+    secretKey: "${LANGFUSE_SECRET_KEY}"

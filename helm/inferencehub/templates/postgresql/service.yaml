@@ -1,0 +1,18 @@
+{{- if and .Values.postgresql.enabled (not .Values.postgresql.external.enabled) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "inferencehub.fullname" . }}-postgresql
+  namespace: {{ include "inferencehub.namespace" . }}
+  labels:
+    {{- include "inferencehub.postgresql.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "inferencehub.postgresql.selectorLabels" . | nindent 4 }}
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgresql
+{{- end }}

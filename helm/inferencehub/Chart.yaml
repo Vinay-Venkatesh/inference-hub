@@ -1,0 +1,27 @@
+apiVersion: v2
+name: inferencehub
+description: >
+  InferenceHub - One Helm install for complete, self-hosted LLM inference infrastructure.
+  Combines OpenWebUI, LiteLLM Gateway, PostgreSQL, and Redis into a single unified platform.
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - llm
+  - inference
+  - inferencehub
+  - openwebui
+  - litellm
+  - ai
+  - gateway
+  - kubernetes
+  - bedrock
+  - self-hosted
+home: https://github.com/Vinay-Venkatesh/inference-hub/blob/main/README.md
+sources:
+  - https://github.com/Vinay-Venkatesh/inference-hub/blob/main/README.md
+  - https://github.com/open-webui/open-webui
+  - https://github.com/BerriAI/litellm
+maintainers:
+  - name: InferenceHub Maintainers
+    url: https://github.com/Vinay-Venkatesh/inference-hub/blob/main/README.md

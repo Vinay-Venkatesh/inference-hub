@@ -1,0 +1,16 @@
+# AWS infrastructure presets for InferenceHub.
+#
+# This file sets AWS-specific Helm defaults (storage class, etc.).
+# It is auto-selected when cloudProvider: aws is set in config.yaml.
+#
+# DO NOT add credentials or ARNs here.
+# The IRSA role ARN comes from config.yaml under aws.irsaRoleArn and is
+# injected as a Helm override by the CLI automatically.
+
+postgresql:
+  persistence:
+    storageClass: "gp3"
+
+redis:
+  persistence:
+    storageClass: "gp3"

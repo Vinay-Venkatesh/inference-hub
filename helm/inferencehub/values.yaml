@@ -1,0 +1,222 @@
+# Default values for inferencehub
+# Override these using config.yaml via the inferencehub CLI, or directly via --set / -f flags.
+
+global:
+  namespace: inferencehub
+
+###########################################
+# OpenWebUI - Chat Interface
+###########################################
+openwebui:
+  image:
+    repository: ghcr.io/open-webui/open-webui
+    tag: "v0.8.5"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 8080
+
+  env:
+    enableOllama: false
+    ollamaBaseUrl: ""
+    enableExternalConnections: false
+    webuiDisableProviderDiscovery: true
+
+  resources:
+    requests:
+      cpu: 300m
+      memory: 1Gi
+    limits:
+      cpu: 500m
+      memory: 1.5Gi
+
+###########################################
+# LiteLLM - LLM Gateway
+###########################################
+litellm:
+  image:
+    repository: ghcr.io/berriai/litellm
+    tag: "main-v1.81.12-stable.2"
+    pullPolicy: IfNotPresent
+
+  replicaCount: 1
+
+  service:
+    type: ClusterIP
+    port: 4000
+    targetPort: 4000
+
+  # REQUIRED: Set via LITELLM_MASTER_KEY environment variable
+  masterKey: ""
+
+  # AWS region for Bedrock models
+  awsRegion: "us-east-1"
+
+  serviceAccount:
+    create: true
+    name: "litellm-sa"
+    # IRSA annotation (AWS-only) - set in values-aws.yaml
+    annotations: {}
+
+  # Models defined here are passed directly to LiteLLM config.yaml
+  # Managed by the CLI from config.yaml models block
+  models: []
+
+  # Pass-through for custom litellm_settings
+  litellmSettings: {}
+
+  livenessProbe:
+    httpGet:
+      path: /health/liveliness
+      port: 4000
+    initialDelaySeconds: 120
+    periodSeconds: 15
+    successThreshold: 1
+    failureThreshold: 3
+    timeoutSeconds: 10
+
+  readinessProbe:
+    httpGet:
+      path: /health/readiness
+      port: 4000
+    initialDelaySeconds: 120
+    periodSeconds: 15
+    successThreshold: 1
+    failureThreshold: 3
+    timeoutSeconds: 10
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 1Gi
+    limits:
+      cpu: 500m
+      memory: 1.5Gi
+
+###########################################
+# PostgreSQL - Database
+###########################################
+postgresql:
+  # Set to false when using an external database (RDS, Cloud SQL, etc.)
+  enabled: true
+
+  external:
+    enabled: false
+    # Full connection string takes precedence over individual fields
+    connectionString: ""
+    host: ""
+    port: 5432
+    database: "inferencehub"
+    username: ""
+    # REQUIRED when using external: set via POSTGRES_PASSWORD env var
+    password: ""
+
+  image:
+    repository: postgres
+    tag: "18-alpine"
+    pullPolicy: IfNotPresent
+
+  auth:
+    database: inferencehub
+    username: inferencehub
+    # REQUIRED: set via POSTGRES_PASSWORD env var
+    password: ""
+
+  persistence:
+    enabled: true
+    # Auto-detected by CLI if empty; set in values-aws.yaml to gp3
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 10Gi
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+###########################################
+# Redis - Caching
+###########################################
+redis:
+  # Set to false when using external Redis (ElastiCache, Upstash, etc.)
+  enabled: true
+
+  external:
+    enabled: false
+    host: ""
+    port: 6379
+    # Set via REDIS_PASSWORD env var if auth required
+    password: ""
+
+  image:
+    repository: redis
+    tag: "8-alpine"
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    port: 6379
+
+  auth:
+    # Leave empty for no auth (default for in-cluster Redis)
+    # Set via REDIS_PASSWORD env var if needed
+    password: ""
+
+  persistence:
+    enabled: false
+    storageClass: ""
+    accessMode: ReadWriteOnce
+    size: 5Gi
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+###########################################
+# Networking - Gateway API
+###########################################
+networking:
+  gatewayAPI:
+    enabled: true
+
+    # Hostname for this InferenceHub instance
+    hostname: ""
+
+    # Reference to the existing Gateway managed by prerequisites
+    # Run scripts/setup-prerequisites.sh to create this gateway
+    gatewayRef:
+      name: "inferencehub-gateway"
+      namespace: "envoy-gateway-system"
+
+    # Allow specifying a specific listener on the Gateway
+    sectionName: ""
+
+    tls:
+      enabled: true
+      # ClusterIssuer name - auto-derived from environment by the CLI:
+      #   production/prod → letsencrypt-prod
+      #   all others      → letsencrypt-staging
+      issuerRef: "letsencrypt-staging"
+      secretName: "inferencehub-tls"
+
+###########################################
+# Observability - Optional
+###########################################
+observability:
+  langfuse:
+    enabled: false
+    host: "https://cloud.langfuse.com"
+    # Set via LANGFUSE_PUBLIC_KEY and LANGFUSE_SECRET_KEY env vars
+    publicKey: ""
+    secretKey: ""

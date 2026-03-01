@@ -1,0 +1,108 @@
+# =============================================================================
+# InferenceHub — .gitignore
+# =============================================================================
+
+# ── Secrets and environment variables ────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+.env.production
+*.env
+!examples/.env.example          # keep the example template committed
+
+# User config files may contain real cluster names / domains / ARNs
+inferencehub.yaml
+config.yaml
+!examples/config-*.yaml         # example configs are safe to commit
+
+# Production-specific Helm overrides (may contain credentials)
+values-production.yaml
+values-aws-production.yaml
+
+# ── Go (inferencehub-cli/) ───────────────────────────────────────────────────
+inferencehub-cli/bin/
+inferencehub-cli/dist/
+inferencehub-cli/vendor/
+inferencehub-cli/go.work
+inferencehub-cli/go.work.sum
+
+# Go test and coverage output
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# Delve debugger binary
+__debug_bin
+
+# Cross-compiled binaries
+*.exe
+*.dll
+*.so
+*.dylib
+
+# ── Python (scripts/) ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg-info/
+.eggs/
+
+# Temporary values files written by setup-prerequisites.py
+/tmp/alb-values-*.yaml
+
+# ── Helm ─────────────────────────────────────────────────────────────────────
+# Charts downloaded by `helm dependency update`
+helm/inferencehub/charts/
+
+# Local render / debug output
+helm-output/
+rendered/
+*.rendered.yaml
+
+# ── Kubernetes ───────────────────────────────────────────────────────────────
+# Local kubeconfig overrides — never commit cluster credentials
+kubeconfig
+kubeconfig.yaml
+*.kubeconfig
+
+# ── Terraform / CloudFormation (iac/) ────────────────────────────────────────
+iac/**/.terraform/
+iac/**/.terraform.lock.hcl
+iac/**/terraform.tfstate
+iac/**/terraform.tfstate.backup
+iac/**/terraform.tfvars
+iac/**/terraform.tfvars.json
+iac/**/*.tfplan
+iac/**/override.tf
+iac/**/override.tf.json
+
+# ── macOS ────────────────────────────────────────────────────────────────────
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# ── Editors ──────────────────────────────────────────────────────────────────
+# VSCode
+.vscode/
+*.code-workspace
+
+# IntelliJ / GoLand
+.idea/
+*.iml
+*.iws
+
+# Vim / Neovim
+*.swp
+*.swo
+*~
+.netrwhist
+
+# ── General temp / log files ─────────────────────────────────────────────────
+*.log
+*.tmp
+*.bak
+*.orig
+Thumbs.db

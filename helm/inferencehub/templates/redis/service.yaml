@@ -1,0 +1,18 @@
+{{- if and .Values.redis.enabled (not .Values.redis.external.enabled) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "inferencehub.fullname" . }}-redis
+  namespace: {{ include "inferencehub.namespace" . }}
+  labels:
+    {{- include "inferencehub.redis.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.redis.service.type }}
+  selector:
+    {{- include "inferencehub.redis.selectorLabels" . | nindent 4 }}
+  ports:
+    - port: {{ .Values.redis.service.port }}
+      targetPort: 6379
+      protocol: TCP
+      name: redis
+{{- end }}

@@ -1,0 +1,63 @@
+{{- if .Values.ollama.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.ollama.name }}
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    app: {{ .Values.ollama.name }}
+    {{- include "model.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.ollama.replicaCount }}
+  selector:
+    matchLabels:
+      app: {{ .Values.ollama.name }}
+      {{- include "model.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.ollama.name }}
+        {{- include "model.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.ollama.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      
+      {{- with .Values.ollama.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+        
+      # pull model and run it in container
+      initContainers:
+        - name: pull-model
+          image: "{{ .Values.ollama.image.repository }}:{{ .Values.ollama.image.tag }}"
+          imagePullPolicy: {{ .Values.ollama.image.pullPolicy }}
+          command: ["sh", "-c"]
+          args:
+            - | 
+              ollama serve &
+              sleep {{ .Values.ollama.model.pullWaitSeconds }}
+              ollama pull {{ .Values.ollama.model.name }}
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /root/.ollama
+
+      containers:
+        - name: ollama
+          image: "{{ .Values.ollama.image.repository }}:{{ .Values.ollama.image.tag }}"
+          imagePullPolicy: {{ .Values.ollama.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.ollama.service.port }}
+              name: http
+          volumeMounts:
+            - name: ollama-data
+              mountPath: /root/.ollama
+          resources:
+            {{- toYaml .Values.ollama.resources | nindent 12 }}
+      volumes:
+        - name: ollama-data
+          persistentVolumeClaim:
+            claimName: {{ .Values.storage.pvc.name }}
+{{- end }}

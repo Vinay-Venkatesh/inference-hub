@@ -1,0 +1,26 @@
+{{- if .Values.networking.gatewayAPI.enabled }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ include "inferencehub.fullname" . }}-httproute
+  namespace: {{ include "inferencehub.namespace" . }}
+  labels:
+    {{- include "inferencehub.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+    - name: {{ .Values.networking.gatewayAPI.gatewayRef.name }}
+      namespace: {{ .Values.networking.gatewayAPI.gatewayRef.namespace }}
+      {{- if .Values.networking.gatewayAPI.sectionName }}
+      sectionName: {{ .Values.networking.gatewayAPI.sectionName }}
+      {{- end }}
+  hostnames:
+    - {{ .Values.networking.gatewayAPI.hostname | quote }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: {{ include "inferencehub.fullname" . }}-openwebui
+          port: {{ .Values.openwebui.service.port }}
+{{- end }}

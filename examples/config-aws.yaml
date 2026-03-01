@@ -1,0 +1,48 @@
+# InferenceHub configuration for AWS EKS with Bedrock
+# Install with:
+#   inferencehub install --config config-aws.yaml
+#   (values-aws.yaml is auto-selected because cloudProvider: aws)
+#
+# Prerequisites:
+#   ./scripts/setup-prerequisites.py \
+#     --cluster-name my-cluster \
+#     --domain inferencehub.ai \
+#     --environment staging \
+#     --tls-email admin@example.com \
+#     --aws-lb-role-arn arn:aws:iam::123456789012:role/aws-load-balancer-controller
+#
+# Required env vars:
+#   export LITELLM_MASTER_KEY="sk-..."
+
+clusterName: my-eks-cluster
+domain: inferencehub.ai
+environment: staging          # Change to "production" for trusted TLS certs
+namespace: inferencehub
+cloudProvider: aws
+
+gateway:
+  name: inferencehub-gateway
+  namespace: envoy-gateway-system
+
+models:
+  bedrock:
+    - name: claude-sonnet
+      model: anthropic.claude-3-5-sonnet-20241022-v2:0
+      region: us-east-1
+    - name: claude-haiku
+      model: anthropic.claude-3-5-haiku-20241022-v1:0
+      region: us-east-1
+
+# AWS-specific settings
+# litellmRoleArn: IAM role for the LiteLLM service account (litellm-sa).
+# Annotated as eks.amazonaws.com/role-arn so LiteLLM pods assume this role
+# via IRSA and call Bedrock — instead of inheriting the EC2 node instance role.
+aws:
+  litellmRoleArn: "arn:aws:iam::123456789012:role/litellm-bedrock-role"
+
+observability:
+  enabled: false
+  langfuse:
+    host: https://cloud.langfuse.com
+    publicKey: "${LANGFUSE_PUBLIC_KEY}"
+    secretKey: "${LANGFUSE_SECRET_KEY}"
