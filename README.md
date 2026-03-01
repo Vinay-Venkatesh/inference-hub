@@ -333,4 +333,4 @@ Refer to [Guide](./CONTRIBUTING.md) for more details
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+Apache — see [LICENSE](LICENSE).
