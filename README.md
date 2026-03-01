@@ -4,7 +4,7 @@ InferenceHub is a Kubernetes-native LLM control plane that deploys a ChatGPT-sty
 
 Self-hosted. Open-source. Designed for Kubernetes environments. <br/>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
 ## What it includes
 
