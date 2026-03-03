@@ -42,14 +42,33 @@ type Config struct {
 	// PostgreSQL configures the database; empty URL means use in-cluster container
 	PostgreSQL DatastoreConfig `yaml:"postgresql,omitempty" json:"postgresql,omitempty"`
 
-	// Redis configures the cache; empty URL means use in-cluster container
-	Redis DatastoreConfig `yaml:"redis,omitempty" json:"redis,omitempty"`
+	// Redis configures separate caches for OpenWebUI and LiteLLM.
+	// Each app gets its own Redis to avoid eviction policy conflicts.
+	// Empty URL means use in-cluster container for that app.
+	Redis RedisConfig `yaml:"redis,omitempty" json:"redis,omitempty"`
 
 	// Observability configures optional LLM observability (Langfuse)
 	Observability ObservabilityConfig `yaml:"observability,omitempty" json:"observability,omitempty"`
 
 	// AWS holds AWS-specific settings used when cloudProvider is "aws".
 	AWS AWSConfig `yaml:"aws,omitempty" json:"aws,omitempty"`
+
+	// OpenWebUI is a raw passthrough to the open-webui subchart values.
+	// Values are merged with InferenceHub's required injections.
+	// Always overridden (do not set): openaiBaseApiUrl, ollama.enabled,
+	// websocket.url (computed from redis: config), websocket.redis.enabled,
+	// extraEnvVars entries for DATABASE_URL and OPENAI_API_KEY.
+	// websocket.redis.* sub-fields (image, resources, labels) are ignored — InferenceHub's Redis is used.
+	// Safe to set: websocket.enabled, websocket.nodeSelector, pipelines.enabled, and all other keys.
+	// Reference: https://github.com/open-webui/helm-charts/blob/main/charts/open-webui/values.yaml
+	OpenWebUI map[string]interface{} `yaml:"openwebui,omitempty" json:"openwebui,omitempty"`
+
+	// LiteLLM is a raw passthrough to the litellm-helm subchart values.
+	// Values are merged with InferenceHub's required injections.
+	// Protected keys (masterkeySecretName, db.deployStandalone, environmentSecrets entry for
+	// inferencehub-litellm-env, and proxy_config.model_list) are always overridden.
+	// Reference: https://github.com/BerriAI/litellm/blob/main/deploy/charts/litellm-helm/values.yaml
+	LiteLLM map[string]interface{} `yaml:"litellm,omitempty" json:"litellm,omitempty"`
 }
 
 // GatewayConfig references the Gateway resource managed by the prerequisites script.
@@ -137,11 +156,45 @@ type DatastoreConfig struct {
 	Username string `yaml:"username,omitempty" json:"username,omitempty"`
 	// Password supports ${ENV_VAR} syntax for environment variable interpolation
 	Password string `yaml:"password,omitempty" json:"password,omitempty"`
+
+	// For external PostgreSQL only: per-app connection strings.
+	// If set, these take precedence over URL/Username/Password.
+	OpenWebUIConnectionString string `yaml:"openwebuiConnectionString,omitempty" json:"openwebuiConnectionString,omitempty"`
+	LiteLLMConnectionString   string `yaml:"litellmConnectionString,omitempty" json:"litellmConnectionString,omitempty"`
 }
 
 // IsExternal returns true when an external datastore URL is provided.
 func (d *DatastoreConfig) IsExternal() bool {
-	return d.URL != ""
+	return d.URL != "" || d.OpenWebUIConnectionString != "" || d.LiteLLMConnectionString != ""
+}
+
+// RedisConfig holds per-app Redis connection settings.
+// InferenceHub deploys separate Redis instances for OpenWebUI and LiteLLM
+// to avoid eviction policy conflicts (session state vs. API caching).
+type RedisConfig struct {
+	// OpenWebUI configures the Redis used by OpenWebUI for websocket session state.
+	// Recommended eviction policy: noeviction or volatile-lru.
+	OpenWebUI RedisAppConfig `yaml:"openwebui,omitempty" json:"openwebui,omitempty"`
+
+	// LiteLLM configures the Redis used by LiteLLM for API response caching.
+	// Recommended eviction policy: allkeys-lru.
+	LiteLLM RedisAppConfig `yaml:"litellm,omitempty" json:"litellm,omitempty"`
+}
+
+// RedisAppConfig configures a single Redis instance for one application.
+// If URL is empty, the in-cluster container is used.
+// Use ${VAR} syntax to reference environment variables for passwords.
+type RedisAppConfig struct {
+	// URL is the full Redis connection URL (e.g., redis://host:6379).
+	// Set to use an external Redis; leave empty for in-cluster.
+	URL string `yaml:"url,omitempty" json:"url,omitempty"`
+	// Password supports ${ENV_VAR} syntax for environment variable interpolation.
+	Password string `yaml:"password,omitempty" json:"password,omitempty"`
+}
+
+// IsExternal returns true when an external Redis URL is provided.
+func (r *RedisAppConfig) IsExternal() bool {
+	return r.URL != ""
 }
 
 // ObservabilityConfig configures optional LLM observability.

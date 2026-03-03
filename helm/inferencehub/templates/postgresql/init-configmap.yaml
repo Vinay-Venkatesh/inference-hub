@@ -13,9 +13,8 @@ data:
 
     echo "Creating databases and users..."
 
-    # Create openwebui database and user
     psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
-      -- Create openwebui user if it doesn't exist
+      -- Create app user if it doesn't exist
       DO \$\$
       BEGIN
         IF NOT EXISTS (SELECT FROM pg_catalog.pg_roles WHERE rolname = '{{ .Values.postgresql.auth.username }}') THEN
@@ -24,13 +23,19 @@ data:
       END
       \$\$;
 
-      -- Create openwebui database if it doesn't exist
-      SELECT 'CREATE DATABASE {{ .Values.postgresql.auth.database }}'
-      WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = '{{ .Values.postgresql.auth.database }}')
+      -- Create openwebui database
+      SELECT 'CREATE DATABASE openwebui'
+      WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'openwebui')
       \gexec
 
-      -- Grant privileges
-      GRANT ALL PRIVILEGES ON DATABASE {{ .Values.postgresql.auth.database }} TO {{ .Values.postgresql.auth.username }};
+      -- Create litellm database
+      SELECT 'CREATE DATABASE litellm'
+      WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'litellm')
+      \gexec
+
+      -- Grant privileges on both databases
+      GRANT ALL PRIVILEGES ON DATABASE openwebui TO {{ .Values.postgresql.auth.username }};
+      GRANT ALL PRIVILEGES ON DATABASE litellm TO {{ .Values.postgresql.auth.username }};
     EOSQL
 
     echo "Database initialization complete!"

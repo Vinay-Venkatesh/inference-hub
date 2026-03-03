@@ -132,7 +132,7 @@ func (o *InstallOrchestrator) phaseInstall(ctx context.Context) error {
 
 	// Generate programmatic overrides (these win over file values)
 	o.ui.Info("Generating Helm values...")
-	overrides, err := helm.GenerateOverrides(o.config, ctx, o.k8sClient)
+	overrides, err := helm.GenerateOverrides(o.config, helm.DefaultReleaseName, ctx, o.k8sClient)
 	if err != nil {
 		return fmt.Errorf("failed to generate Helm values: %w", err)
 	}

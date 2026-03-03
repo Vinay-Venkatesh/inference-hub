@@ -147,11 +147,16 @@ func printInstallSummary(uiInstance *ui.UI, cfg *config.Config, valuesFile strin
 	} else {
 		uiInstance.PrintKeyValue("PostgreSQL", "in-cluster")
 	}
-	if cfg.Redis.IsExternal() {
-		uiInstance.PrintKeyValue("Redis", "external")
-	} else {
-		uiInstance.PrintKeyValue("Redis", "in-cluster")
+	owRedis := "in-cluster"
+	if cfg.Redis.OpenWebUI.IsExternal() {
+		owRedis = "external"
 	}
+	litellmRedis := "in-cluster"
+	if cfg.Redis.LiteLLM.IsExternal() {
+		litellmRedis = "external"
+	}
+	uiInstance.PrintKeyValue("Redis (OpenWebUI)", owRedis)
+	uiInstance.PrintKeyValue("Redis (LiteLLM)", litellmRedis)
 	if cfg.Observability.Enabled {
 		uiInstance.PrintKeyValue("Observability", "Langfuse enabled")
 	}

@@ -40,9 +40,55 @@ models:
 aws:
   litellmRoleArn: "arn:aws:iam::123456789012:role/litellm-bedrock-role"
 
+# Redis configuration — optional, defaults to in-cluster Redis pods
+# InferenceHub deploys separate Redis instances for OpenWebUI (session state)
+# and LiteLLM (API caching) to avoid eviction policy conflicts.
+# For production, point each to a separate ElastiCache instance:
+# redis:
+#   openwebui:
+#     url: "redis://openwebui-cache.abc123.cache.amazonaws.com:6379"
+#     password: "${OPENWEBUI_REDIS_PASSWORD}"
+#   litellm:
+#     url: "redis://litellm-cache.def456.cache.amazonaws.com:6379"
+#     password: "${LITELLM_REDIS_PASSWORD}"
+
 observability:
   enabled: false
   langfuse:
     host: https://cloud.langfuse.com
     publicKey: "${LANGFUSE_PUBLIC_KEY}"
     secretKey: "${LANGFUSE_SECRET_KEY}"
+
+# OpenWebUI passthrough — any open-webui chart value is accepted here.
+# Full reference: https://github.com/open-webui/helm-charts/blob/main/charts/open-webui/values.yaml
+# Protected (do not set — overridden by InferenceHub):
+#   openaiBaseApiUrl, extraEnvVars[DATABASE_URL], extraEnvVars[OPENAI_API_KEY],
+#   ollama.enabled, websocket.redis.enabled, websocket.url
+# openwebui:
+#   defaultUserRole: pending      # require admin approval for new signups
+#   pipelines:
+#     enabled: true               # enable the Pipelines feature
+#   sso:
+#     enabled: true
+#     oidc:
+#       enabled: true
+#       clientId: "${OIDC_CLIENT_ID}"
+#       clientSecret: "${OIDC_CLIENT_SECRET}"
+#       providerUrl: "https://accounts.google.com"
+#       providerName: "Google"
+
+# LiteLLM passthrough — any litellm-helm chart value is accepted here.
+# Full reference: https://github.com/BerriAI/litellm/blob/main/deploy/charts/litellm-helm/values.yaml
+# Protected (do not set — overridden by InferenceHub):
+#   masterkeySecretName, masterkeySecretKey, db.deployStandalone, db.useExisting,
+#   redis.enabled, environmentSecrets, proxy_config.model_list,
+#   proxy_config.general_settings.master_key
+# litellm:
+#   proxy_config:
+#     general_settings:
+#       request_timeout: 600
+#       alerting:
+#         - slack
+#       slack_msg_webhook_url: "${SLACK_WEBHOOK_URL}"
+#     litellm_settings:
+#       drop_params: true

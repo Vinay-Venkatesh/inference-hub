@@ -110,7 +110,7 @@ func (o *UpgradeOrchestrator) phaseUpgrade(ctx context.Context) error {
 	}
 
 	o.ui.Info("Generating Helm values...")
-	overrides, err := helm.GenerateOverrides(o.config, ctx, o.k8sClient)
+	overrides, err := helm.GenerateOverrides(o.config, helm.DefaultReleaseName, ctx, o.k8sClient)
 	if err != nil {
 		return fmt.Errorf("failed to generate Helm values: %w", err)
 	}

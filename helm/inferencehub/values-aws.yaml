@@ -12,5 +12,9 @@ postgresql:
     storageClass: "gp3"
 
 redis:
-  persistence:
-    storageClass: "gp3"
+  openwebui:
+    persistence:
+      storageClass: "gp3"
+  litellm:
+    persistence:
+      storageClass: "gp3"

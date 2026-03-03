@@ -119,67 +119,111 @@ app.kubernetes.io/component: database
 {{- end }}
 
 {{/*
-Redis labels
+Redis labels — accepts dict with "app" (openwebui|litellm) and "context" (root .)
 */}}
 {{- define "inferencehub.redis.labels" -}}
-helm.sh/chart: {{ include "inferencehub.chart" . }}
+helm.sh/chart: {{ include "inferencehub.chart" .context }}
 {{ include "inferencehub.redis.selectorLabels" . }}
-{{- if .Chart.AppVersion }}
-app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- if .context.Chart.AppVersion }}
+app.kubernetes.io/version: {{ .context.Chart.AppVersion | quote }}
 {{- end }}
-app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/managed-by: {{ .context.Release.Service }}
 app.kubernetes.io/part-of: inferencehub
-app.kubernetes.io/component: cache
+app.kubernetes.io/component: cache-{{ .app }}
 {{- end }}
 
 {{/*
-Redis selector labels
+Redis selector labels — accepts dict with "app" (openwebui|litellm) and "context" (root .)
 */}}
 {{- define "inferencehub.redis.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "inferencehub.name" . }}
-app.kubernetes.io/instance: {{ .Release.Name }}
-app.kubernetes.io/component: cache
+app.kubernetes.io/name: {{ include "inferencehub.name" .context }}
+app.kubernetes.io/instance: {{ .context.Release.Name }}
+app.kubernetes.io/component: cache-{{ .app }}
 {{- end }}
 
 {{/*
-Service account name for LiteLLM
+OpenWebUI service name — derived from the subchart alias "openwebui".
+Helm names subchart resources as "{release-name}-{alias}".
 */}}
-{{- define "inferencehub.litellm.serviceAccountName" -}}
-{{- if .Values.litellm.serviceAccount.create }}
-{{- default (printf "%s-litellm" (include "inferencehub.fullname" .)) .Values.litellm.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.litellm.serviceAccount.name }}
-{{- end }}
+{{- define "inferencehub.openwebui.serviceName" -}}
+{{- printf "%s-openwebui" .Release.Name }}
 {{- end }}
 
 {{/*
-PostgreSQL connection string
+LiteLLM service name — derived from the subchart alias "litellm".
+Helm names subchart resources as "{release-name}-{alias}".
 */}}
-{{- define "inferencehub.postgresql.connectionString" -}}
+{{- define "inferencehub.litellm.serviceName" -}}
+{{- printf "%s-litellm" .Release.Name }}
+{{- end }}
+
+{{/*
+PostgreSQL connection string for OpenWebUI database.
+*/}}
+{{- define "inferencehub.postgresql.openwebuiConnectionString" -}}
 {{- if .Values.postgresql.external.enabled }}
-{{- .Values.postgresql.external.connectionString | default (printf "postgresql://%s:%s@%s:%d/%s" .Values.postgresql.external.username .Values.postgresql.external.password .Values.postgresql.external.host (.Values.postgresql.external.port | int) .Values.postgresql.external.database) }}
+{{- .Values.postgresql.external.openwebuiConnectionString }}
 {{- else }}
-{{- printf "postgresql://%s:%s@%s-postgresql:%d/%s" .Values.postgresql.auth.username .Values.postgresql.auth.password (include "inferencehub.fullname" .) (5432 | int) .Values.postgresql.auth.database }}
+{{- printf "postgresql://%s:%s@%s-postgresql:5432/openwebui"
+    .Values.postgresql.auth.username
+    .Values.postgresql.auth.password
+    (include "inferencehub.fullname" .) }}
 {{- end }}
 {{- end }}
 
 {{/*
-Redis host
+PostgreSQL connection string for LiteLLM database.
 */}}
-{{- define "inferencehub.redis.host" -}}
-{{- if .Values.redis.external.enabled }}
-{{- .Values.redis.external.host }}
+{{- define "inferencehub.postgresql.litellmConnectionString" -}}
+{{- if .Values.postgresql.external.enabled }}
+{{- .Values.postgresql.external.litellmConnectionString }}
 {{- else }}
-{{- printf "%s-redis" (include "inferencehub.fullname" .) }}
+{{- printf "postgresql://%s:%s@%s-postgresql:5432/litellm"
+    .Values.postgresql.auth.username
+    .Values.postgresql.auth.password
+    (include "inferencehub.fullname" .) }}
 {{- end }}
 {{- end }}
 
 {{/*
-Redis port
+OpenWebUI Redis host
 */}}
-{{- define "inferencehub.redis.port" -}}
-{{- if .Values.redis.external.enabled }}
-{{- .Values.redis.external.port | default 6379 }}
+{{- define "inferencehub.redis.openwebui.host" -}}
+{{- if .Values.redis.openwebui.external.enabled }}
+{{- .Values.redis.openwebui.external.host }}
+{{- else }}
+{{- printf "%s-redis-openwebui" (include "inferencehub.fullname" .) }}
+{{- end }}
+{{- end }}
+
+{{/*
+OpenWebUI Redis port
+*/}}
+{{- define "inferencehub.redis.openwebui.port" -}}
+{{- if .Values.redis.openwebui.external.enabled }}
+{{- .Values.redis.openwebui.external.port | default 6379 }}
+{{- else }}
+{{- 6379 }}
+{{- end }}
+{{- end }}
+
+{{/*
+LiteLLM Redis host
+*/}}
+{{- define "inferencehub.redis.litellm.host" -}}
+{{- if .Values.redis.litellm.external.enabled }}
+{{- .Values.redis.litellm.external.host }}
+{{- else }}
+{{- printf "%s-redis-litellm" (include "inferencehub.fullname" .) }}
+{{- end }}
+{{- end }}
+
+{{/*
+LiteLLM Redis port
+*/}}
+{{- define "inferencehub.redis.litellm.port" -}}
+{{- if .Values.redis.litellm.external.enabled }}
+{{- .Values.redis.litellm.external.port | default 6379 }}
 {{- else }}
 {{- 6379 }}
 {{- end }}
@@ -190,4 +234,145 @@ Namespace
 */}}
 {{- define "inferencehub.namespace" -}}
 {{- .Values.global.namespace | default .Release.Namespace }}
+{{- end }}
+
+{{/*
+Redis Deployment — call with dict: app (openwebui|litellm), redis (sub-config), context (root .)
+*/}}
+{{- define "inferencehub.redis.deployment" -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "inferencehub.fullname" .context }}-redis-{{ .app }}
+  namespace: {{ include "inferencehub.namespace" .context }}
+  labels:
+    {{- include "inferencehub.redis.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "inferencehub.redis.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "inferencehub.redis.selectorLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: redis
+          image: "{{ .redis.image.repository }}:{{ .redis.image.tag }}"
+          imagePullPolicy: {{ .redis.image.pullPolicy }}
+          ports:
+            - name: redis
+              containerPort: 6379
+              protocol: TCP
+          {{- if .redis.auth.password }}
+          command:
+            - redis-server
+            - --requirepass
+            - $(REDIS_PASSWORD)
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "inferencehub.fullname" .context }}-redis-{{ .app }}-secret
+                  key: redis-password
+          {{- end }}
+          livenessProbe:
+            tcpSocket:
+              port: 6379
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 5
+          readinessProbe:
+            exec:
+              command:
+                - redis-cli
+                - ping
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            successThreshold: 1
+            failureThreshold: 5
+          {{- if .redis.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          {{- end }}
+          {{- if .redis.resources }}
+          resources:
+            {{- toYaml .redis.resources | nindent 12 }}
+          {{- end }}
+      {{- if .redis.persistence.enabled }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "inferencehub.fullname" .context }}-redis-{{ .app }}-data
+      {{- end }}
+{{- end }}
+
+{{/*
+Redis Service — call with dict: app (openwebui|litellm), redis (sub-config), context (root .)
+*/}}
+{{- define "inferencehub.redis.service" -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "inferencehub.fullname" .context }}-redis-{{ .app }}
+  namespace: {{ include "inferencehub.namespace" .context }}
+  labels:
+    {{- include "inferencehub.redis.labels" . | nindent 4 }}
+spec:
+  type: {{ .redis.service.type }}
+  selector:
+    {{- include "inferencehub.redis.selectorLabels" . | nindent 4 }}
+  ports:
+    - port: {{ .redis.service.port }}
+      targetPort: 6379
+      protocol: TCP
+      name: redis
+{{- end }}
+
+{{/*
+Redis Secret — call with dict: app (openwebui|litellm), redis (sub-config), context (root .)
+Rendered only when auth.password is set.
+*/}}
+{{- define "inferencehub.redis.secret" -}}
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ include "inferencehub.fullname" .context }}-redis-{{ .app }}-secret
+  namespace: {{ include "inferencehub.namespace" .context }}
+  labels:
+    {{- include "inferencehub.redis.labels" . | nindent 4 }}
+type: Opaque
+stringData:
+  redis-password: {{ .redis.auth.password | quote }}
+{{- end }}
+
+{{/*
+Redis PVC — call with dict: app (openwebui|litellm), redis (sub-config), context (root .)
+*/}}
+{{- define "inferencehub.redis.pvc" -}}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "inferencehub.fullname" .context }}-redis-{{ .app }}-data
+  namespace: {{ include "inferencehub.namespace" .context }}
+  labels:
+    {{- include "inferencehub.redis.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .redis.persistence.accessMode | quote }}
+  {{- if .redis.persistence.storageClass }}
+  {{- if (eq "-" .redis.persistence.storageClass) }}
+  storageClassName: ""
+  {{- else }}
+  storageClassName: {{ .redis.persistence.storageClass | quote }}
+  {{- end }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .redis.persistence.size | quote }}
 {{- end }}

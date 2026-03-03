@@ -32,8 +32,12 @@ postgresql:
     size: 2Gi
 
 redis:
-  persistence:
-    enabled: false
+  openwebui:
+    persistence:
+      enabled: false
+  litellm:
+    persistence:
+      enabled: false
 
 networking:
   gatewayAPI:
