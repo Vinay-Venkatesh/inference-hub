@@ -8,6 +8,7 @@ on:
       - "docs/**"
       - "mkdocs.yml"
       - "requirements-docs.txt"
+      - "CHANGELOG.md"
   workflow_dispatch:
 
 permissions:
