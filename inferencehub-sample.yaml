@@ -1,0 +1,69 @@
+aws:
+  litellmRoleArn: "arn:aws:iam::123456789:role/inference-platform-LiteLLMBedrockRole"   # arn:aws:iam::<account-id>:role/<role-name> — required for Bedrock
+cloudProvider: aws
+clusterName: inferencehub
+domain: inferencehub.ai
+environment: prod
+gateway:
+  name: inferencehub-gateway
+  namespace: envoy-gateway-system
+models:
+  bedrock:
+  - model: anthropic.claude-3-5-sonnet-20241022-v2:0
+    name: claude-sonnet
+    region: us-east-1
+namespace: inferencehub
+observability:
+  enabled: true
+  langfuse:
+    host: https://cloud.langfuse.com
+    publicKey: ${LANGFUSE_PUBLIC_KEY}
+    secretKey: ${LANGFUSE_SECRET_KEY}
+storageClass: gp2
+postgresql: {}
+redis:
+  litellm: {}
+  openwebui: {}
+versions:
+  openwebui: "v0.8.8"
+  litellm: "main-v1.81.14-stable"
+  postgresql: "18-alpine"
+  redis: "8-alpine"
+webSearch:
+  enabled: true
+  #--- can be applied from here as well ----#
+  # engine: tavily
+  # external:
+  #   enabled: true
+  #   apiKey: "${TAVILY_KEY}"
+openwebui:
+  extraEnvVars:
+    - name: WEBUI_NAME
+      value: "inferencehub"
+    - name: ENABLE_WEB_SEARCH
+      value: "true"
+    - name: WEB_SEARCH_ENGINE
+      value: "tavily"
+    - name: TAVILY_API_KEY
+      value: "${TAVILY_KEY}"
+  startupProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 30
+  readinessProbe:
+    httpGet:
+      path: /health/db
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    failureThreshold: 3
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 60
+    periodSeconds: 15
+    failureThreshold: 5  

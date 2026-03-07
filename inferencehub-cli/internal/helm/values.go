@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/Vinay-Venkatesh/inferencehub-cli/internal/config"
 	"github.com/Vinay-Venkatesh/inferencehub-cli/internal/k8s"
@@ -55,20 +57,46 @@ func MergeValues(dst, src map[string]interface{}) map[string]interface{} {
 
 // GenerateOverrides converts a Config into a Helm values override map.
 // releaseName is the Helm release name used to compute internal service URLs.
-// The overrides are merged on top of the chart's base values.yaml (and any -f values files).
+// baseValues are the already-loaded -f values file contents; they are used to
+// detect user-specified storage classes so auto-detection does not stomp them.
+// The overrides are merged on top of baseValues by the caller.
 //
 // IMPORTANT: the Helm Go SDK treats map keys as literal strings — it does NOT expand
 // dot-notation into nested paths. All values must be expressed as proper nested maps.
-func GenerateOverrides(cfg *config.Config, releaseName string, ctx context.Context, k8sClient *k8s.Client) (map[string]interface{}, error) {
+func GenerateOverrides(cfg *config.Config, releaseName string, baseValues map[string]interface{}, ctx context.Context, k8sClient *k8s.Client) (map[string]interface{}, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
 
 	overrides := map[string]interface{}{}
-	fullname := fmt.Sprintf("%s-inferencehub", releaseName)
+	// Replicate Helm's fullname helper: if the release name already contains the
+	// chart name, use the release name as-is to avoid double-suffixing (e.g.
+	// "inferencehub" + "inferencehub" → "inferencehub", not "inferencehub-inferencehub").
+	const chartName = "inferencehub"
+	var fullname string
+	if strings.Contains(releaseName, chartName) {
+		fullname = releaseName
+	} else {
+		fullname = releaseName + "-" + chartName
+	}
 
-	// Global namespace
-	setNested(overrides, cfg.EffectiveNamespace(), "global", "namespace")
+	// NOTE: global.namespace is intentionally NOT set here. Parent chart templates
+	// fall back to .Release.Namespace, and subcharts (litellm-helm, open-webui)
+	// also use .Release.Namespace implicitly. Injecting global.namespace would
+	// cause a split-namespace deployment where parent resources go to the override
+	// namespace while subchart resources (e.g. the migrations Job) go to
+	// .Release.Namespace (default). Namespace correctness is enforced by installing
+	// the Helm release with the target namespace (-n inferencehub / c.namespace).
+
+	// Resolve effective storage class (highest priority wins):
+	//   1. component-level in passthrough / -f values file (checked per-component below)
+	//   2. cfg.StorageClass — explicit field in inferencehub.yaml
+	//   3. cluster default annotation (auto-detected)
+	//   4. "" — leave unset, let Kubernetes decide
+	sc := cfg.StorageClass
+	if sc == "" {
+		sc, _ = detectStorageClass(ctx, k8sClient)
+	}
 
 	// Component image versions for non-subchart components
 	if cfg.Versions.PostgreSQL != "" {
@@ -77,6 +105,9 @@ func GenerateOverrides(cfg *config.Config, releaseName string, ctx context.Conte
 	if cfg.Versions.Redis != "" {
 		setNested(overrides, cfg.Versions.Redis, "redis", "openwebui", "image", "tag")
 		setNested(overrides, cfg.Versions.Redis, "redis", "litellm", "image", "tag")
+	}
+	if cfg.Versions.SearXNG != "" {
+		setNested(overrides, cfg.Versions.SearXNG, "searxng", "image", "tag")
 	}
 
 	// ── OpenWebUI subchart values ──────────────────────────────────────────────
@@ -93,7 +124,7 @@ func GenerateOverrides(cfg *config.Config, releaseName string, ctx context.Conte
 	setNested(owValues, false, "websocket", "redis", "enabled")
 
 	// Protected: point websocket to the OpenWebUI Redis instance
-	owRedisHost := inferredOpenWebUIRedisHost(cfg, releaseName)
+	owRedisHost := inferredOpenWebUIRedisHost(cfg, fullname)
 	owRedisPort := inferredRedisPort(cfg.Redis.OpenWebUI)
 	owRedisPassword := cfg.Redis.OpenWebUI.Password
 	if owRedisPassword == "" {
@@ -110,9 +141,12 @@ func GenerateOverrides(cfg *config.Config, releaseName string, ctx context.Conte
 	// Protected: point OpenWebUI at LiteLLM
 	litellmPort := 4000
 	setNested(owValues, fmt.Sprintf("http://%s-litellm:%d/v1", releaseName, litellmPort), "openaiBaseApiUrl")
+	// Clear the default literal API key so it doesn't conflict with our secret-based injection
+	setNested(owValues, "", "openaiApiKey")
 
-	// Protected: inject DATABASE_URL and OPENAI_API_KEY via extraEnvVars
-	inferencehubEnvVars := []map[string]interface{}{
+	// Truly protected env vars — platform breaks if these are wrong.
+	// These always win over any user-supplied openwebui.extraEnvVars entry with the same name.
+	protectedEnvVars := []map[string]interface{}{
 		{
 			"name": "DATABASE_URL",
 			"valueFrom": map[string]interface{}{
@@ -132,14 +166,87 @@ func GenerateOverrides(cfg *config.Config, releaseName string, ctx context.Conte
 			},
 		},
 	}
-	owValues["extraEnvVars"] = mergeEnvVarLists(
-		extractEnvVarList(owValues),
-		inferencehubEnvVars,
-	)
+
+	// Soft-default env vars — CLI provides these when webSearch is configured, but
+	// the user can override any of them via openwebui.extraEnvVars in inferencehub.yaml.
+	var softDefaultEnvVars []map[string]interface{}
+	if cfg.WebSearch.Enabled {
+		engine := cfg.WebSearch.Engine
+		if engine == "" {
+			engine = "searxng"
+		}
+		softDefaultEnvVars = append(softDefaultEnvVars,
+			map[string]interface{}{"name": "ENABLE_RAG_WEB_SEARCH", "value": "true"},
+			map[string]interface{}{"name": "ENABLE_WEB_SEARCH", "value": "true"},
+			map[string]interface{}{"name": "RAG_WEB_SEARCH_ENGINE", "value": engine},
+			map[string]interface{}{"name": "WEB_SEARCH_ENGINE", "value": engine},
+		)
+		if cfg.WebSearch.External.Enabled {
+			switch engine {
+			case "searxng":
+				if cfg.WebSearch.External.QueryUrl != "" {
+					softDefaultEnvVars = append(softDefaultEnvVars,
+						map[string]interface{}{"name": "SEARXNG_QUERY_URL", "value": cfg.WebSearch.External.QueryUrl},
+					)
+				}
+			case "brave":
+				softDefaultEnvVars = append(softDefaultEnvVars,
+					map[string]interface{}{"name": "BRAVE_SEARCH_API_KEY", "value": cfg.WebSearch.External.ApiKey},
+				)
+			case "bing":
+				softDefaultEnvVars = append(softDefaultEnvVars,
+					map[string]interface{}{"name": "BING_SEARCH_V7_SUBSCRIPTION_KEY", "value": cfg.WebSearch.External.ApiKey},
+				)
+			case "tavily":
+				softDefaultEnvVars = append(softDefaultEnvVars,
+					map[string]interface{}{"name": "TAVILY_API_KEY", "value": cfg.WebSearch.External.ApiKey},
+				)
+			case "google_pse":
+				softDefaultEnvVars = append(softDefaultEnvVars,
+					map[string]interface{}{"name": "GOOGLE_PSE_API_KEY", "value": cfg.WebSearch.External.ApiKey},
+					map[string]interface{}{"name": "GOOGLE_PSE_ENGINE_ID", "value": cfg.WebSearch.External.EngineId},
+				)
+			// duckduckgo requires no extra credentials
+			}
+		} else {
+			// In-cluster SearXNG — deploy it and point OpenWebUI at it.
+			setNested(overrides, true, "searxng", "enabled")
+
+			// Use SEARXNG_SECRET_KEY from env if available, otherwise generate
+			secretKey := os.Getenv("SEARXNG_SECRET_KEY")
+			if secretKey == "" {
+				secretKey = generateRandomString(32)
+			}
+			setNested(overrides, secretKey, "searxng", "secretKey")
+
+			searxngURL := fmt.Sprintf("http://%s-searxng:8080/search?q=<query>&format=json", fullname)
+			searxngBaseURL := fmt.Sprintf("http://%s-searxng:8080", fullname)
+			softDefaultEnvVars = append(softDefaultEnvVars,
+				map[string]interface{}{"name": "SEARXNG_QUERY_URL", "value": searxngURL},
+				map[string]interface{}{"name": "SEARXNG_URL", "value": searxngBaseURL},
+			)
+		}
+	}
+
+	// Merge order:
+	//   1. soft defaults (CLI web search vars) — lowest precedence
+	//   2. user's openwebui.extraEnvVars       — overrides soft defaults
+	//   3. protected vars (DATABASE_URL, etc.)  — always win
+	userEnvVars := extractEnvVarList(owValues)
+	merged := mergeEnvVarLists(softDefaultEnvVars, userEnvVars)
+	owValues["extraEnvVars"] = mergeEnvVarLists(merged, protectedEnvVars)
 
 	// Protected: image tag (from versions.openwebui)
 	if cfg.Versions.OpenWebUI != "" {
 		setNested(owValues, cfg.Versions.OpenWebUI, "image", "tag")
+	}
+
+	// Auto storage class: only if neither the passthrough config nor the -f values
+	// file already specifies one for the OpenWebUI PVC.
+	if sc != "" &&
+		nestedString(owValues, "persistence", "storageClass") == "" &&
+		nestedString(baseValues, "openwebui", "persistence", "storageClass") == "" {
+		setNested(owValues, sc, "persistence", "storageClass")
 	}
 
 	setNested(overrides, owValues, "openwebui")
@@ -155,6 +262,15 @@ func GenerateOverrides(cfg *config.Config, releaseName string, ctx context.Conte
 	setNested(litellmValues, false, "db", "deployStandalone")
 	setNested(litellmValues, true, "db", "useExisting")
 	setNested(litellmValues, false, "redis", "enabled")
+
+	// Protected: point litellm-helm's db.secret at our PostgreSQL secret so that
+	// both the Deployment and the migrations Job can resolve DATABASE_USERNAME /
+	// DATABASE_PASSWORD / DATABASE_HOST / DATABASE_NAME.
+	setNested(litellmValues, fullname+"-postgresql-secret", "db", "secret", "name")
+	setNested(litellmValues, "postgres-user", "db", "secret", "usernameKey")
+	setNested(litellmValues, "postgres-password", "db", "secret", "passwordKey")
+	setNested(litellmValues, fullname+"-postgresql", "db", "endpoint")
+	setNested(litellmValues, "litellm", "db", "database")
 
 	// Protected: master key value (used by parent chart's templates/litellm/secret.yaml)
 	setNested(litellmValues, os.Getenv("LITELLM_MASTER_KEY"), "masterKey")
@@ -223,13 +339,12 @@ func GenerateOverrides(cfg *config.Config, releaseName string, ctx context.Conte
 		if pgPassword != "" {
 			setNested(overrides, pgPassword, "postgresql", "auth", "password")
 		}
-		if sc, err := detectStorageClass(ctx, k8sClient); err == nil && sc != "" {
+		if sc != "" && nestedString(baseValues, "postgresql", "persistence", "storageClass") == "" {
 			setNested(overrides, sc, "postgresql", "persistence", "storageClass")
 		}
 	}
 
 	// ── Redis (per-app) ────────────────────────────────────────────────────────
-	sc, _ := detectStorageClass(ctx, k8sClient)
 
 	// OpenWebUI Redis
 	if cfg.Redis.OpenWebUI.IsExternal() {
@@ -247,7 +362,7 @@ func GenerateOverrides(cfg *config.Config, releaseName string, ctx context.Conte
 		if owRedisPass != "" {
 			setNested(overrides, owRedisPass, "redis", "openwebui", "auth", "password")
 		}
-		if sc != "" {
+		if sc != "" && nestedString(baseValues, "redis", "openwebui", "persistence", "storageClass") == "" {
 			setNested(overrides, sc, "redis", "openwebui", "persistence", "storageClass")
 		}
 	}
@@ -268,7 +383,7 @@ func GenerateOverrides(cfg *config.Config, releaseName string, ctx context.Conte
 		if litellmRedisPass != "" {
 			setNested(overrides, litellmRedisPass, "redis", "litellm", "auth", "password")
 		}
-		if sc != "" {
+		if sc != "" && nestedString(baseValues, "redis", "litellm", "persistence", "storageClass") == "" {
 			setNested(overrides, sc, "redis", "litellm", "persistence", "storageClass")
 		}
 	}
@@ -386,11 +501,12 @@ func extractHost(url string) string {
 }
 
 // inferredOpenWebUIRedisHost returns the Redis hostname for the OpenWebUI Redis instance.
-func inferredOpenWebUIRedisHost(cfg *config.Config, releaseName string) string {
+// fullname is the pre-computed Helm fullname (matching inferencehub.fullname in _helpers.tpl).
+func inferredOpenWebUIRedisHost(cfg *config.Config, fullname string) string {
 	if cfg.Redis.OpenWebUI.IsExternal() {
 		return extractHost(cfg.Redis.OpenWebUI.URL)
 	}
-	return fmt.Sprintf("%s-inferencehub-redis-openwebui", releaseName)
+	return fmt.Sprintf("%s-redis-openwebui", fullname)
 }
 
 // inferredRedisPort returns the Redis port string from a RedisAppConfig URL.
@@ -487,6 +603,28 @@ func extractStringList(m map[string]interface{}, key string) []string {
 	return nil
 }
 
+// nestedString walks path in a nested map[string]interface{} and returns the
+// string value at the leaf, or "" if any key is missing or the leaf is not a string.
+// Used to check whether a user has already set a value before auto-injecting a default.
+func nestedString(m map[string]interface{}, path ...string) string {
+	cur := m
+	for i, key := range path {
+		val, ok := cur[key]
+		if !ok {
+			return ""
+		}
+		if i == len(path)-1 {
+			s, _ := val.(string)
+			return s
+		}
+		cur, ok = val.(map[string]interface{})
+		if !ok {
+			return ""
+		}
+	}
+	return ""
+}
+
 // deepCopyMap returns a deep copy of a map[string]interface{} to avoid mutating user config.
 func deepCopyMap(m map[string]interface{}) map[string]interface{} {
 	if m == nil {
@@ -506,4 +644,15 @@ func deepCopyMap(m map[string]interface{}) map[string]interface{} {
 		}
 	}
 	return result
+}
+
+// generateRandomString returns a pseudo-random alphanumeric string of length n.
+func generateRandomString(n int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, n)
+	seed := time.Now().UnixNano()
+	for i := range b {
+		b[i] = letters[(seed+int64(i))%int64(len(letters))]
+	}
+	return string(b)
 }

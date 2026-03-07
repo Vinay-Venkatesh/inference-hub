@@ -92,10 +92,17 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		selector string
 	}
 	componentDefs := []componentDef{
-		{"openwebui", "app.kubernetes.io/component=ui"},
-		{"litellm", "app.kubernetes.io/component=gateway"},
-		{"postgresql", "app.kubernetes.io/component=database"},
-		{"redis", "app.kubernetes.io/component=cache"},
+		{"openwebui", "app.kubernetes.io/name=openwebui,app.kubernetes.io/instance=inferencehub"},
+		{"litellm", "app.kubernetes.io/name=litellm,app.kubernetes.io/instance=inferencehub"},
+		{"postgresql", "app.kubernetes.io/component=database,app.kubernetes.io/instance=inferencehub"},
+		{"redis-openwebui", "app.kubernetes.io/component=cache-openwebui,app.kubernetes.io/instance=inferencehub"},
+		{"redis-litellm", "app.kubernetes.io/component=cache-litellm,app.kubernetes.io/instance=inferencehub"},
+	}
+
+	// Include SearXNG only when it is deployed (web search enabled)
+	searxngDeployed, _ := k8sClient.ServiceExists(ctx, namespace, "inferencehub-searxng")
+	if searxngDeployed {
+		componentDefs = append(componentDefs, componentDef{"searxng", "app.kubernetes.io/component=websearch,app.kubernetes.io/instance=inferencehub"})
 	}
 	statusItems := []ui.StatusItem{}
 
@@ -153,7 +160,11 @@ func runStatus(cmd *cobra.Command, args []string) error {
 		"inferencehub-openwebui",
 		"inferencehub-litellm",
 		"inferencehub-postgresql",
-		"inferencehub-redis",
+		"inferencehub-redis-openwebui",
+		"inferencehub-redis-litellm",
+	}
+	if searxngDeployed {
+		services = append(services, "inferencehub-searxng")
 	}
 
 	svcItems := []ui.StatusItem{}

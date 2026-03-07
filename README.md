@@ -1,24 +1,28 @@
 # InferenceHub
 
-InferenceHub is a Kubernetes-native LLM control plane that deploys a ChatGPT-style interface with unified multi-provider model routing. <br/>
+![alt text](docs/images/logo.jpg)
 
-Self-hosted. Open-source. Designed for Kubernetes environments. <br/>
+InferenceHub is a Kubernetes-native CLI that deploys, wires, and governs a self-hosted LLM stack on your cluster.<br/>
+It is Self-hosted. Open-source. Designed for Kubernetes environments. <br/>
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 
-## What it includes
+## What InferenceHub Provisions
 
 | Component | Version | Role |
 |-----------|---------|------|
 | [OpenWebUI](https://github.com/open-webui/open-webui) | `v0.8.5` | ChatGPT-style web interface for interacting with LLMs |
-| [LiteLLM](https://github.com/BerriAI/litellm) | `v1.81.12` | OpenAI-compatible API gateway routing to 2000+ model providers |
+| [LiteLLM](https://github.com/BerriAI/litellm) | `v1.81.12-stable` | OpenAI-compatible API gateway routing to 2000+ model providers |
 | [PostgreSQL](https://hub.docker.com/_/postgres) | `18` | Persistent storage for users, conversations, and configuration |
-| [Redis](https://hub.docker.com/_/redis) | `8` | Optional response caching layer to reduce API costs and latency |
+| [Redis](https://hub.docker.com/_/redis) | `8` | Two separate instances: session state (OpenWebUI) and API response caching (LiteLLM) |
+| [SearXNG](https://github.com/searxng/searxng) | `2026.3.6` | Self-hosted web search engine for OpenWebUI (optional, deployed in-cluster by default) |
 | [Envoy Gateway](https://github.com/envoyproxy/gateway) | `v1.7.0` | Kubernetes Gateway API implementation |
 | [cert-manager](https://github.com/cert-manager/cert-manager) | `v1.19.4` | Automatic TLS via Let's Encrypt |
 | [Langfuse](https://langfuse.com) | SaaS | for LLM observability and cost tracking |
 
 ## Why InferenceHub?
+
+**InferenceHub is an infrastructure layer provisioner that helps you to create and manage your Internal AI platform via cli**
 
 Running LLM tools inside Kubernetes often requires stitching together a UI layer, API gateway, storage, caching, and observability — each configured separately. <br/>
 
@@ -35,11 +39,9 @@ This project is early-stage and aims to evolve into a declarative internal AI pl
 
 ![overview](./docs/images/overview.png)
 
-Routing is handled by the Kubernetes Gateway API (HTTPRoute). TLS is managed by cert-manager with Let's Encrypt. The Helm chart deploys only the application layer — cluster-wide components (Gateway, cert-manager) are installed separately via the prerequisites script.
-
 ## Cloud provider support
 
-> **v0.1.0 is tested and supported on AWS EKS.** The Helm chart is cloud-agnostic, but the prerequisites script, NLB configuration, IRSA integration, and storage class defaults are built and validated for AWS. Other providers are on the roadmap.
+> **v0.2.0 is tested and supported on AWS EKS.** The Helm chart is cloud-agnostic, but the prerequisites script, NLB configuration, IRSA integration, and storage class defaults are built and validated for AWS. Other providers are on the roadmap.
 
 | Provider | Status | Notes |
 |----------|--------|-------|
@@ -52,8 +54,8 @@ Routing is handled by the Kubernetes Gateway API (HTTPRoute). TLS is managed by 
 
 - [ ] **GKE support** — GKE Autopilot compatibility, Workload Identity for Vertex AI, Cloud SQL / Memorystore as external datastores
 - [ ] **AKS support** — Azure Load Balancer, Managed Identity for Azure OpenAI, Azure Database for PostgreSQL
-- [ ] **Helm OCI registry** — publish chart to `ghcr.io` so users can `helm install` without cloning the repo
-- [ ] **Multi-tenant isolation** (namespace-per-team, separate API keys)
+- [ ] **Helm OCI registry** — publish the InferenceHub chart to `ghcr.io` so users can `helm install` without cloning the repo
+- [ ] **Multi-tenant isolation** (namespace-per-team, virtual API keys via LiteLLM teams)
 - [ ] **RAG primitives** (pgvector and Weaviate integration)
 
 >*Watch out this section for more updates*
@@ -76,7 +78,7 @@ Otherwise, run once per cluster:
 python3 scripts/setup-prerequisites.py \
   --cluster-name my-cluster \
   --domain inferencehub.ai \
-  --environment staging \
+  --environment prod \
   --tls-email admin@inferencehub.ai
 ```
 
@@ -84,14 +86,27 @@ This installs: Gateway API CRDs, cert-manager, Envoy Gateway, GatewayClass, Gate
 
 See [docs/prerequisites.md](docs/prerequisites.md) for full options.
 
-### 2. Create a config file
+### 2. Install the CLI locally
+
+InferenceHub is written in Go. You can build and install it to your `$GOPATH/bin` (make sure your Go path is in your `$PATH`).
+
+```bash
+cd inferencehub-cli
+make install
+cd ..
+```
+
+Verify installation:
+```bash
+inferencehub --version
+```
+
+### 3. Create a config file
 
 Run all `inferencehub` commands from the **project root** (the directory that contains `helm/` and `scripts/`). The CLI creates `inferencehub.yaml` and reads `.env` from your current directory.
 
 ```bash
 # Make sure you're at the project root
-cd /path/to/inference-platform
-
 inferencehub config init
 ```
 
@@ -99,7 +114,7 @@ Edit the generated `inferencehub.yaml`:
 
 ```yaml
 clusterName: my-cluster
-domain: ai.example.com
+domain: inferencehub.ai
 environment: staging
 namespace: inferencehub
 cloudProvider: aws        # auto-selects helm/inferencehub/values-aws.yaml
@@ -124,11 +139,33 @@ observability:
     host: https://cloud.langfuse.com
     publicKey: "${LANGFUSE_PUBLIC_KEY}"
     secretKey: "${LANGFUSE_SECRET_KEY}"
+
+# Optional: enable web search in OpenWebUI
+# Deploys SearXNG in-cluster by default. To use an external engine, set external.enabled: true.
+# webSearch:
+#   enabled: true
+#   engine: searxng          # searxng (default) | brave | bing | tavily | google_pse | duckduckgo
+#   external:
+#     enabled: false         # set true to use your own engine instead of in-cluster SearXNG
+#     queryUrl: ""           # for searxng: https://searxng.example.com/search?q=<query>&format=json
+#     apiKey: "${API_KEY}"   # for brave / bing / tavily / google_pse
+#     engineId: ""           # for google_pse only
+
+# Optional: pass any open-webui chart value through directly
+# openwebui:
+#   sso:
+#     enabled: true
+
+# Optional: pass any litellm-helm chart value through directly
+# litellm:
+#   proxy_config:
+#     litellm_settings:
+#       request_timeout: 600
 ```
 
 See [docs/configuration.md](docs/configuration.md) for the full schema.
 
-### 3. Set environment variables
+### 4. Set environment variables
 
 ```bash
 export LITELLM_MASTER_KEY="sk-your-secret-key"
@@ -139,7 +176,7 @@ export LANGFUSE_SECRET_KEY="sk-lf-..."
 
 Use a `.env` file — the CLI auto-loads `.env`, `.env.local`, and `~/.inferencehub/.env`.
 
-### 4. Point DNS before installing
+### 5. Point DNS before installing
 
 > [!CAUTION]
 > **Set up your DNS record before running `inferencehub install`.** The installer deploys cert-manager, which immediately attempts an HTTP-01 ACME challenge to issue a TLS certificate. If your domain does not resolve to the load balancer at that point, the challenge fails and cert-manager enters a backoff loop that requires manual intervention to clear.
@@ -164,7 +201,7 @@ dig inferencehub.platformaiq.com @8.8.8.8 +short
 # Must return an IP or CNAME — if empty, wait and retry
 ```
 
-### 5. Install
+### 6. Install
 
 ```bash
 inferencehub install --config inferencehub.yaml
@@ -172,12 +209,60 @@ inferencehub install --config inferencehub.yaml
 
 When `cloudProvider: aws` is set in your config, the CLI automatically uses `helm/inferencehub/values-aws.yaml` (gp3 storage) and annotates the LiteLLM service account with `aws.litellmRoleArn` for Bedrock IRSA — no manual values file editing required.
 
-### 6. Verify
+### 7. Verify
 
 ```bash
 inferencehub verify
 inferencehub status
 ```
+
+## Web search
+
+InferenceHub can enable web search inside OpenWebUI. By default it deploys **SearXNG** — a free, self-hosted, open-source metasearch engine — inside the cluster. No external account or API key required.
+
+### In-cluster SearXNG (default)
+
+```yaml
+webSearch:
+  enabled: true
+```
+
+A SearXNG pod is deployed alongside the rest of the stack and wired to OpenWebUI automatically. No further configuration needed.
+
+### External SearXNG instance
+
+Point OpenWebUI at an existing SearXNG deployment:
+
+```yaml
+webSearch:
+  enabled: true
+  external:
+    enabled: true
+    queryUrl: "https://searxng.example.com/search?q=<query>&format=json"
+```
+
+### External API-key engine
+
+Use a third-party search API instead. Set `engine` to one of the supported values and supply credentials:
+
+| Engine | `engine` value | Required credential |
+|--------|---------------|---------------------|
+| Brave Search | `brave` | `apiKey` |
+| Bing | `bing` | `apiKey` |
+| Tavily | `tavily` | `apiKey` |
+| Google PSE | `google_pse` | `apiKey` + `engineId` |
+| DuckDuckGo | `duckduckgo` | _(none)_ |
+
+```yaml
+webSearch:
+  enabled: true
+  engine: brave
+  external:
+    enabled: true
+    apiKey: "${BRAVE_API_KEY}"
+```
+
+Credentials support `${ENV_VAR}` interpolation — keep them out of `inferencehub.yaml` and export them before running the CLI.
 
 ## Troubleshooting: site not accessible after install
 
@@ -282,14 +367,16 @@ inference-platform/
 ├── helm/
 │   └── inferencehub/          # The Helm chart
 │       ├── Chart.yaml
+│       ├── Chart.lock
+│       ├── charts/             # Subchart tarballs (open-webui, litellm-helm)
 │       ├── values.yaml         # Defaults
 │       ├── values-aws.yaml     # AWS preset (gp3 storage) — auto-selected, do not edit
 │       ├── values-local.yaml   # Local/kind overrides
 │       └── templates/
-│           ├── openwebui/
-│           ├── litellm/
-│           ├── postgresql/
+│           ├── litellm/        # Master key secret + wiring env secret
+│           ├── postgresql/     # StatefulSet, Service, Secret, init ConfigMap
 │           ├── redis/
+│           ├── searxng/        # Deployment, Service, ConfigMap (when webSearch.enabled)
 │           └── networking/     # HTTPRoute, Certificate, ReferenceGrant
 ├── scripts/
 │   ├── setup-prerequisites.py    # Install cluster-wide components
@@ -302,13 +389,16 @@ inference-platform/
 └── docs/
     ├── prerequisites.md
     ├── configuration.md
-    └── implementation-plan-v1.md
+    └── upgrading/
+        ├── v0.1-to-v0.2.md
+        └── migrate-database.sh
 ```
 
 ## Documentation
 
 - [Prerequisites setup](docs/prerequisites.md) — Install cluster-wide components
 - [Configuration reference](docs/configuration.md) — Full `config.yaml` schema
+- [Infrastructure model](docs/infrastructure.md) — How InferenceHub manages PostgreSQL and Redis
 - [AWS deployment](docs/prerequisites.md#aws-load-balancer-controller) — EKS-specific setup
 
 
@@ -325,9 +415,10 @@ inference-platform/
 
 1. Fork the repository
 2. Create a feature branch
-3. Run `helm lint helm/inferencehub/` to validate chart changes
-4. Run `cd inferencehub-cli && go build ./...` to validate CLI changes
-5. Open a pull request
+3. Run `cd helm/inferencehub && helm dep build` to install subchart dependencies
+4. Run `helm lint helm/inferencehub/` to validate chart changes
+5. Run `cd inferencehub-cli && go build ./...` to validate CLI changes
+6. Open a pull request
 
 Refer to [Guide](./CONTRIBUTING.md) for more details
 

@@ -8,7 +8,7 @@
 #     --cluster-name my-cluster \
 #     --domain inferencehub.ai \
 #     --environment staging \
-#     --tls-email admin@example.com \
+#     --tls-email admin@inferencehub.ai \
 #     --aws-lb-role-arn arn:aws:iam::123456789012:role/aws-load-balancer-controller
 #
 # Required env vars:
@@ -32,6 +32,11 @@ models:
     - name: claude-haiku
       model: anthropic.claude-3-5-haiku-20241022-v1:0
       region: us-east-1
+
+# StorageClass for all PVCs (OpenWebUI, PostgreSQL, Redis).
+# Leave unset to auto-detect the cluster's annotated default StorageClass.
+# Set explicitly when your cluster has no default annotation (e.g. EKS with gp2):
+# storageClass: gp2
 
 # AWS-specific settings
 # litellmRoleArn: IAM role for the LiteLLM service account (litellm-sa).
@@ -58,6 +63,17 @@ observability:
     host: https://cloud.langfuse.com
     publicKey: "${LANGFUSE_PUBLIC_KEY}"
     secretKey: "${LANGFUSE_SECRET_KEY}"
+
+# Web search — optional. Deploys SearXNG in-cluster when enabled (no API key needed).
+# To use an external engine instead, set external.enabled: true and supply credentials.
+# webSearch:
+#   enabled: true
+#   # engine defaults to "searxng". Other options: brave | bing | tavily | google_pse | duckduckgo
+#   # external:
+#   #   enabled: true
+#   #   queryUrl: "https://searxng.example.com/search?q=<query>&format=json"  # external SearXNG
+#   #   apiKey: "${BRAVE_API_KEY}"   # for brave / bing / tavily / google_pse
+#   #   engineId: ""                 # for google_pse only
 
 # OpenWebUI passthrough — any open-webui chart value is accepted here.
 # Full reference: https://github.com/open-webui/helm-charts/blob/main/charts/open-webui/values.yaml

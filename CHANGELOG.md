@@ -1,14 +1,82 @@
 # Changelog
 
+## v0.2.0 — Foundation
+
+**March 07 2026**
+
+### Breaking changes
+
+- **Database split**: the single `inferencehub` PostgreSQL database is now two separate databases — `openwebui` and `litellm`. Existing installations must run the migration script (`docs/upgrading/migrate-database.sh`) before upgrading.
+- **External PostgreSQL config**: `postgresql.external.connectionString` is replaced by `postgresql.external.openwebuiConnectionString` and `postgresql.external.litellmConnectionString`.
+
+### What's new
+
+**Web search with flexible engine support**
+OpenWebUI can now perform web searches directly from the chat interface. InferenceHub deploys [SearXNG](https://github.com/searxng/searxng) in-cluster by default — no external account or API key required. Users who already have a search engine can bring their own instead.
+
+Enable with a single config flag:
+
+```yaml
+webSearch:
+  enabled: true   # deploys SearXNG in-cluster automatically
+```
+
+To use an external engine:
+
+```yaml
+webSearch:
+  enabled: true
+  engine: brave          # brave | bing | tavily | google_pse | duckduckgo | searxng
+  external:
+    enabled: true
+    apiKey: "${BRAVE_API_KEY}"
+    # queryUrl: "..."    # for external SearXNG instances
+    # engineId: "..."    # for google_pse only
+```
+
+**Upstream subcharts replace custom templates**
+OpenWebUI and LiteLLM are now deployed via their official Helm subcharts:
+- `open-webui` chart `12.5.0` (from `https://helm.openwebui.com/`)
+- `litellm-helm` chart `1.81.12-stable` (from `oci://ghcr.io/berriai`)
+
+This gives users the full feature set of each upstream chart — SSO, web search, pipelines, alerting, etc. — by adding values to `inferencehub.yaml` without waiting for InferenceHub to expose each option.
+
+**Full passthrough configuration**
+Add an `openwebui:` or `litellm:` block to `inferencehub.yaml` to pass any value directly to the upstream chart:
+
+```yaml
+openwebui:
+  defaultUserRole: pending   # require admin approval for new users
+
+litellm:
+  proxy_config:
+    litellm_settings:
+      request_timeout: 600
+```
+
+InferenceHub's required injections (database URLs, Redis wiring, master key, model list) are always applied on top.
+
+**LiteLLM connected to PostgreSQL by default**
+LiteLLM now uses the `litellm` database out of the box, which is required for virtual keys, teams, and spend tracking for the future releases.
+
+**LiteLLM image switched to `litellm-database` variant**
+Uses `ghcr.io/berriai/litellm-database` which bundles Prisma and database migration support.
+
+### Upgrade
+
+See `docs/upgrading/v0.1-to-v0.2.md` in the repository for the full step-by-step guide.
+
+---
+
 ## v0.1.0 — Initial Release
 
-**March 2026**
+**March 01 2026**
 
 Open-sourcing InferenceHub — a Kubernetes-native LLM control plane that deploys a complete, self-hosted AI inference stack with a single CLI command.
 
 ### What is InferenceHub?
 
-InferenceHub eliminates the operational overhead of running LLM infrastructure on Kubernetes. Instead of manually wiring together a chat interface, model gateway, database, cache, TLS, and observability — InferenceHub ships them as a single opinionated platform, configured through one YAML file and installed with one command.
+InferenceHub eliminates the operational overhead of running LLM infrastructure on Kubernetes. Instead of manually wiring together a chat interface, model gateway, database, cache, TLS, and observability — InferenceHub provisioner ship them as a single opinionated platform, configured through one YAML file and installed with one command.
 
 ```
 inferencehub install --config inferencehub.yaml
@@ -84,23 +152,14 @@ A single `inferencehub.yaml` drives the entire platform. Secrets stay out of the
 
 ---
 
-### Roadmap
-
-- GKE and AKS support
-- Helm OCI registry (`helm install` without cloning the repo)
-- Multi-tenant isolation (namespace-per-team, separate API keys)
-- RAG primitives (pgvector / Weaviate integration)
-
----
-
 ### Getting started
 
 ```bash
 # 1. Install prerequisites (once per cluster)
 python3 scripts/setup-prerequisites.py \
   --cluster-name my-cluster \
-  --domain ai.example.com \
-  --tls-email admin@example.com \
+  --domain inferencehub.ai \
+  --tls-email admin@inferencehub.ai \
   --aws-lb-role-arn arn:aws:iam::123456789012:role/AWSLoadBalancerControllerRole
 
 # 2. Point DNS to the NLB before proceeding
@@ -112,4 +171,4 @@ export LITELLM_MASTER_KEY="sk-..."
 inferencehub install --config inferencehub.yaml
 ```
 
-Full documentation: [docs/configuration.md](docs/configuration.md) · [docs/prerequisites.md](docs/prerequisites.md)
+Full documentation: [Getting-Started](getting-started.md)

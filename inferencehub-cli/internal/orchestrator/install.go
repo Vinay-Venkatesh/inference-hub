@@ -132,7 +132,7 @@ func (o *InstallOrchestrator) phaseInstall(ctx context.Context) error {
 
 	// Generate programmatic overrides (these win over file values)
 	o.ui.Info("Generating Helm values...")
-	overrides, err := helm.GenerateOverrides(o.config, helm.DefaultReleaseName, ctx, o.k8sClient)
+	overrides, err := helm.GenerateOverrides(o.config, helm.DefaultReleaseName, fileValues, ctx, o.k8sClient)
 	if err != nil {
 		return fmt.Errorf("failed to generate Helm values: %w", err)
 	}
@@ -180,25 +180,34 @@ func (o *InstallOrchestrator) phaseWait(ctx context.Context) error {
 	o.ui.PrintPhase("Phase 3: Wait for Pods")
 
 	components := map[string]string{
-		"openwebui":  "app.kubernetes.io/component=ui",
-		"litellm":    "app.kubernetes.io/component=gateway",
-		"postgresql": "app.kubernetes.io/component=database",
-		"redis":      "app.kubernetes.io/component=cache",
+		"openwebui":       "app.kubernetes.io/name=openwebui,app.kubernetes.io/instance=inferencehub",
+		"litellm":         "app.kubernetes.io/name=litellm,app.kubernetes.io/instance=inferencehub",
+		"postgresql":      "app.kubernetes.io/component=database,app.kubernetes.io/instance=inferencehub",
+		"redis-openwebui": "app.kubernetes.io/component=cache-openwebui,app.kubernetes.io/instance=inferencehub",
+		"redis-litellm":   "app.kubernetes.io/component=cache-litellm,app.kubernetes.io/instance=inferencehub",
 	}
 
-	var lastErr error
+	// Only wait for SearXNG if it's enabled and NOT external
+	if o.config.WebSearch.Enabled && !o.config.WebSearch.External.Enabled {
+		components["searxng"] = "app.kubernetes.io/component=websearch,app.kubernetes.io/instance=inferencehub"
+	}
+
+	var hasError bool
 	for name, selector := range components {
 		o.ui.StartSpinner(fmt.Sprintf("Waiting for %s...", name))
 		err := o.k8sClient.WaitForPodsReady(ctx, o.config.EffectiveNamespace(), selector, 5*time.Minute)
 		if err != nil {
-			o.ui.StopSpinnerWithMessage(false, fmt.Sprintf("%s not ready yet", name))
-			lastErr = err
+			o.ui.StopSpinnerWithMessage(false, fmt.Sprintf("%s not ready yet: %v", name, err))
+			hasError = true
 		} else {
 			o.ui.StopSpinnerWithMessage(true, fmt.Sprintf("%s ready", name))
 		}
 	}
 
-	return lastErr
+	if hasError {
+		return fmt.Errorf("some components failed to become ready")
+	}
+	return nil
 }
 
 // phaseVerify runs the end-to-end verification checks.

@@ -1,0 +1,22 @@
+{{- if .Values.searxng.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "inferencehub.fullname" . }}-searxng-config
+  namespace: {{ include "inferencehub.namespace" . }}
+  labels:
+    {{- include "inferencehub.searxng.labels" . | nindent 4 }}
+data:
+  settings.yml: |
+    use_default_settings: true
+    server:
+      secret_key: {{ .Values.searxng.secretKey | quote }}
+      # Disable rate limiter so OpenWebUI can query freely in-cluster
+      limiter: false
+      image_proxy: true
+    search:
+      # json format must be enabled for the OpenWebUI API integration
+      formats:
+        - html
+        - json
+{{- end }}

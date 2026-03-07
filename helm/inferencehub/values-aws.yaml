@@ -1,20 +1,42 @@
 # AWS infrastructure presets for InferenceHub.
 #
-# This file sets AWS-specific Helm defaults (storage class, etc.).
+# This file is for AWS-specific Helm overrides that apply to your entire cluster.
+# Use it for storage classes, node selectors, or AWS-specific annotations.
+#
 # It is auto-selected when cloudProvider: aws is set in config.yaml.
 #
 # DO NOT add credentials or ARNs here.
-# The IRSA role ARN comes from config.yaml under aws.irsaRoleArn and is
+# The IRSA role ARN comes from config.yaml under aws.litellmRoleArn and is
 # injected as a Helm override by the CLI automatically.
 
-postgresql:
-  persistence:
-    storageClass: "gp3"
+# Use gp3 storage for all persistent volumes on AWS
+# postgresql:
+#   persistence:
+#     storageClass: "gp3"
 
-redis:
-  openwebui:
-    persistence:
-      storageClass: "gp3"
-  litellm:
-    persistence:
-      storageClass: "gp3"
+# litellm:
+#   persistence:
+#     storageClass: "gp3"
+
+# openwebui:
+#   persistence:
+#     storageClass: "gp3"
+
+# --- other AWS-specific tuning (uncomment to use) ---
+
+# Specific node groups (e.g., if you have a dedicated 'ai-platform' node group)
+# openwebui:
+#   nodeSelector:
+#     eks.amazonaws.com/nodegroup: ai-platform
+
+# Multi-AZ placement constraints
+# postgresql:
+#   affinity:
+#     podAntiAffinity:
+#       requiredDuringSchedulingIgnoredDuringExecution:
+#       - labelSelector:
+#           matchExpressions:
+#           - key: app.kubernetes.io/name
+#             operator: In
+#             values: [postgresql]
+#         topologyKey: "topology.kubernetes.io/zone"

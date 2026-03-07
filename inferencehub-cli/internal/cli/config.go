@@ -129,7 +129,7 @@ func runConfigShow(_ *cobra.Command, _ []string) error {
 func starterConfig() *config.Config {
 	return &config.Config{
 		ClusterName:   "my-cluster",
-		Domain:        "ai.example.com",
+		Domain:        "inferencehub.ai",
 		Environment:   "staging",
 		Namespace:     "inferencehub",
 		CloudProvider: "aws",

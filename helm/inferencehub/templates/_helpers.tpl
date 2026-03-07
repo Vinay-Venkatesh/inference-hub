@@ -230,10 +230,43 @@ LiteLLM Redis port
 {{- end }}
 
 {{/*
+SearXNG service name
+*/}}
+{{- define "inferencehub.searxng.serviceName" -}}
+{{- printf "%s-searxng" (include "inferencehub.fullname" .) }}
+{{- end }}
+
+{{/*
+SearXNG labels
+*/}}
+{{- define "inferencehub.searxng.labels" -}}
+helm.sh/chart: {{ include "inferencehub.chart" . }}
+{{ include "inferencehub.searxng.selectorLabels" . }}
+{{- if .Chart.AppVersion }}
+app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+{{- end }}
+app.kubernetes.io/managed-by: {{ .Release.Service }}
+app.kubernetes.io/part-of: inferencehub
+app.kubernetes.io/component: websearch
+{{- end }}
+
+{{/*
+SearXNG selector labels
+*/}}
+{{- define "inferencehub.searxng.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "inferencehub.name" . }}
+app.kubernetes.io/instance: {{ .Release.Name }}
+app.kubernetes.io/component: websearch
+{{- end }}
+
+{{/*
 Namespace
+Use .Release.Namespace directly so parent chart resources and subchart resources
+(e.g. litellm-helm migrations Job) all land in the same namespace. The release
+namespace is set by the CLI via helm.Client.Namespace (or -n flag for manual runs).
 */}}
 {{- define "inferencehub.namespace" -}}
-{{- .Values.global.namespace | default .Release.Namespace }}
+{{- .Release.Namespace }}
 {{- end }}
 
 {{/*
