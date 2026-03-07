@@ -9,16 +9,24 @@ It is Self-hosted. Open-source. Designed for Kubernetes environments. <br/>
 
 ## What InferenceHub Provisions
 
+**Application stack** — versions are configurable via `versions:` in `inferencehub.yaml`:
+
+| Component | Role |
+|-----------|------|
+| [OpenWebUI](https://github.com/open-webui/open-webui) | ChatGPT-style web interface for interacting with LLMs |
+| [LiteLLM](https://github.com/BerriAI/litellm) | OpenAI-compatible API gateway routing to 2000+ model providers |
+| [PostgreSQL](https://hub.docker.com/_/postgres) | Persistent storage for users, conversations, and configuration |
+| [Redis](https://hub.docker.com/_/redis) | Two separate instances: session state (OpenWebUI) and API response caching (LiteLLM) |
+| [SearXNG](https://github.com/searxng/searxng) | Self-hosted web search engine for OpenWebUI (optional) |
+
+**Infrastructure** — versions pinned by the prerequisites script:
+
 | Component | Version | Role |
 |-----------|---------|------|
-| [OpenWebUI](https://github.com/open-webui/open-webui) | `v0.8.5` | ChatGPT-style web interface for interacting with LLMs |
-| [LiteLLM](https://github.com/BerriAI/litellm) | `v1.81.12-stable` | OpenAI-compatible API gateway routing to 2000+ model providers |
-| [PostgreSQL](https://hub.docker.com/_/postgres) | `18` | Persistent storage for users, conversations, and configuration |
-| [Redis](https://hub.docker.com/_/redis) | `8` | Two separate instances: session state (OpenWebUI) and API response caching (LiteLLM) |
-| [SearXNG](https://github.com/searxng/searxng) | `2026.3.6` | Self-hosted web search engine for OpenWebUI (optional, deployed in-cluster by default) |
 | [Envoy Gateway](https://github.com/envoyproxy/gateway) | `v1.7.0` | Kubernetes Gateway API implementation |
 | [cert-manager](https://github.com/cert-manager/cert-manager) | `v1.19.4` | Automatic TLS via Let's Encrypt |
-| [Langfuse](https://langfuse.com) | SaaS | for LLM observability and cost tracking |
+| [AWS Load Balancer Controller](https://github.com/kubernetes-sigs/aws-load-balancer-controller) | `3.1.0` | NLB provisioning on AWS EKS (optional) |
+| [Langfuse](https://langfuse.com) | SaaS | LLM observability and cost tracking (optional) |
 
 ## Why InferenceHub?
 
@@ -49,16 +57,6 @@ This project is early-stage and aims to evolve into a declarative internal AI pl
 | GKE | 🔜 Planned | Cloud Load Balancer, Workload Identity |
 | AKS | 🔜 Planned | Azure Load Balancer, Workload Identity |
 | Local / kind | ⚠️ Best effort | No cloud-specific features; works for development |
-
-## Roadmap
-
-- [ ] **GKE support** — GKE Autopilot compatibility, Workload Identity for Vertex AI, Cloud SQL / Memorystore as external datastores
-- [ ] **AKS support** — Azure Load Balancer, Managed Identity for Azure OpenAI, Azure Database for PostgreSQL
-- [ ] **Helm OCI registry** — publish the InferenceHub chart to `ghcr.io` so users can `helm install` without cloning the repo
-- [ ] **Multi-tenant isolation** (namespace-per-team, virtual API keys via LiteLLM teams)
-- [ ] **RAG primitives** (pgvector and Weaviate integration)
-
->*Watch out this section for more updates*
 
 ## Requirements
 
