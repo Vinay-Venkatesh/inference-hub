@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <url>
+         <loc>https://vinay-venkatesh.github.io/inference-hub/</loc>
+         <lastmod>2026-03-07</lastmod>
+    </url>
+    <url>
+         <loc>https://vinay-venkatesh.github.io/inference-hub/changelog/</loc>
+         <lastmod>2026-03-07</lastmod>
+    </url>
+    <url>
+         <loc>https://vinay-venkatesh.github.io/inference-hub/cli-reference/</loc>
+         <lastmod>2026-03-07</lastmod>
+    </url>
+    <url>
+         <loc>https://vinay-venkatesh.github.io/inference-hub/configuration/</loc>
+         <lastmod>2026-03-07</lastmod>
+    </url>
+    <url>
+         <loc>https://vinay-venkatesh.github.io/inference-hub/getting-started/</loc>
+         <lastmod>2026-03-07</lastmod>
+    </url>
+    <url>
+         <loc>https://vinay-venkatesh.github.io/inference-hub/infrastructure/</loc>
+         <lastmod>2026-03-07</lastmod>
+    </url>
+    <url>
+         <loc>https://vinay-venkatesh.github.io/inference-hub/prerequisites/</loc>
+         <lastmod>2026-03-07</lastmod>
+    </url>
+    <url>
+         <loc>https://vinay-venkatesh.github.io/inference-hub/upgrading/v0.1-to-v0.2/</loc>
+         <lastmod>2026-03-07</lastmod>
+    </url>
+</urlset>
