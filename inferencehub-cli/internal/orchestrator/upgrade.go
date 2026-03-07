@@ -3,6 +3,7 @@ package orchestrator
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/Vinay-Venkatesh/inferencehub-cli/internal/config"
 	"github.com/Vinay-Venkatesh/inferencehub-cli/internal/helm"
@@ -59,6 +60,11 @@ func (o *UpgradeOrchestrator) Execute(ctx context.Context) error {
 		return fmt.Errorf("upgrade failed: %w", err)
 	}
 
+	if err := o.phaseWait(ctx); err != nil {
+		o.ui.Warn("Some pods are not ready yet - they may still be restarting")
+		o.ui.Info("Run 'kubectl get pods -n %s' to check status", o.config.EffectiveNamespace())
+	}
+
 	if err := o.phaseVerify(ctx); err != nil {
 		o.ui.Warn("Verification completed with errors (platform may still be restarting)")
 		o.ui.Info("Run 'inferencehub verify' later to check status")
@@ -110,7 +116,7 @@ func (o *UpgradeOrchestrator) phaseUpgrade(ctx context.Context) error {
 	}
 
 	o.ui.Info("Generating Helm values...")
-	overrides, err := helm.GenerateOverrides(o.config, ctx, o.k8sClient)
+	overrides, err := helm.GenerateOverrides(o.config, helm.DefaultReleaseName, fileValues, ctx, o.k8sClient)
 	if err != nil {
 		return fmt.Errorf("failed to generate Helm values: %w", err)
 	}
@@ -129,6 +135,41 @@ func (o *UpgradeOrchestrator) phaseUpgrade(ctx context.Context) error {
 	}
 	o.ui.StopSpinnerWithMessage(true, "Helm upgrade complete")
 
+	return nil
+}
+
+// phaseWait waits for all component pods to become ready.
+func (o *UpgradeOrchestrator) phaseWait(ctx context.Context) error {
+	o.ui.PrintPhase("Phase 3: Wait for Pods")
+
+	components := map[string]string{
+		"openwebui":       "app.kubernetes.io/name=openwebui,app.kubernetes.io/instance=inferencehub",
+		"litellm":         "app.kubernetes.io/name=litellm,app.kubernetes.io/instance=inferencehub",
+		"postgresql":      "app.kubernetes.io/component=database,app.kubernetes.io/instance=inferencehub",
+		"redis-openwebui": "app.kubernetes.io/component=cache-openwebui,app.kubernetes.io/instance=inferencehub",
+		"redis-litellm":   "app.kubernetes.io/component=cache-litellm,app.kubernetes.io/instance=inferencehub",
+	}
+
+	// Only wait for SearXNG if it's enabled and NOT external
+	if o.config.WebSearch.Enabled && !o.config.WebSearch.External.Enabled {
+		components["searxng"] = "app.kubernetes.io/component=websearch,app.kubernetes.io/instance=inferencehub"
+	}
+
+	var hasError bool
+	for name, selector := range components {
+		o.ui.StartSpinner(fmt.Sprintf("Waiting for %s...", name))
+		err := o.k8sClient.WaitForPodsReady(ctx, o.config.EffectiveNamespace(), selector, 5*time.Minute)
+		if err != nil {
+			o.ui.StopSpinnerWithMessage(false, fmt.Sprintf("%s not ready yet: %v", name, err))
+			hasError = true
+		} else {
+			o.ui.StopSpinnerWithMessage(true, fmt.Sprintf("%s ready", name))
+		}
+	}
+
+	if hasError {
+		return fmt.Errorf("some components failed to become ready")
+	}
 	return nil
 }
 

@@ -117,10 +117,15 @@ func Validate(cfg *Config) error {
 		}
 	}
 
-	// Validate external Redis config
-	if cfg.Redis.IsExternal() {
-		if cfg.Redis.Password == "" {
-			return fmt.Errorf("redis.password is required when redis.url is set")
+	// Validate external Redis config (per-app)
+	if cfg.Redis.OpenWebUI.IsExternal() {
+		if cfg.Redis.OpenWebUI.Password == "" {
+			return fmt.Errorf("redis.openwebui.password is required when redis.openwebui.url is set")
+		}
+	}
+	if cfg.Redis.LiteLLM.IsExternal() {
+		if cfg.Redis.LiteLLM.Password == "" {
+			return fmt.Errorf("redis.litellm.password is required when redis.litellm.url is set")
 		}
 	}
 
@@ -157,8 +162,75 @@ func ValidateAndWarn(cfg *Config) (error, []string) {
 		warnings = append(warnings, "Using in-cluster PostgreSQL. For production, consider an external managed database (e.g., RDS)")
 	}
 
-	if !cfg.Redis.IsExternal() {
-		warnings = append(warnings, "Using in-cluster Redis. For production, consider an external managed cache (e.g., ElastiCache)")
+	if !cfg.Redis.OpenWebUI.IsExternal() {
+		warnings = append(warnings, "Using in-cluster Redis for OpenWebUI. For production, consider an external managed cache (e.g., ElastiCache)")
+	}
+	if !cfg.Redis.LiteLLM.IsExternal() {
+		warnings = append(warnings, "Using in-cluster Redis for LiteLLM. For production, consider an external managed cache (e.g., ElastiCache)")
+	}
+
+	// Warn if user is setting protected OpenWebUI keys
+	if cfg.OpenWebUI != nil {
+		owProtected := []string{"openaiBaseApiUrl", "openaiApiKey"}
+		for _, k := range owProtected {
+			if _, set := cfg.OpenWebUI[k]; set {
+				warnings = append(warnings, fmt.Sprintf(
+					"openwebui.%s is managed by InferenceHub and will be overridden — remove it from inferencehub.yaml", k))
+			}
+		}
+
+		// Warn if user enables the Ollama subchart — it will be forced off
+		if v, set := cfg.OpenWebUI["ollama"]; set {
+			if ollamaMap, ok := v.(map[string]interface{}); ok {
+				if enabled, ok := ollamaMap["enabled"].(bool); ok && enabled {
+					warnings = append(warnings, "openwebui.ollama.enabled: true will be overridden to false — InferenceHub disables the Ollama subchart. To use Ollama, add it under models.ollama with an external apiBase URL instead")
+				}
+			}
+		}
+
+		// Warn about protected websocket fields
+		if v, set := cfg.OpenWebUI["websocket"]; set {
+			if wsMap, ok := v.(map[string]interface{}); ok {
+				// websocket.redis.enabled: true is forced off
+				if redisMap, ok := wsMap["redis"].(map[string]interface{}); ok {
+					if enabled, ok := redisMap["enabled"].(bool); ok && enabled {
+						warnings = append(warnings, "openwebui.websocket.redis.enabled: true will be overridden to false — InferenceHub provides a dedicated Redis for OpenWebUI websockets (redis.openwebui). The entire websocket.redis: block (image, resources, labels) is ignored")
+					}
+				}
+				// websocket.url is always computed from InferenceHub's Redis config
+				if url, ok := wsMap["url"].(string); ok && url != "" {
+					warnings = append(warnings, fmt.Sprintf(
+						"openwebui.websocket.url %q will be overridden — InferenceHub computes this from your redis: config. To use a different Redis, set redis.external in inferencehub.yaml", url))
+				}
+			}
+		}
+	}
+
+	// Warn if user is setting protected LiteLLM keys
+	if cfg.LiteLLM != nil {
+		litellmProtected := []string{"masterkeySecretName", "masterkeySecretKey"}
+		for _, k := range litellmProtected {
+			if _, set := cfg.LiteLLM[k]; set {
+				warnings = append(warnings, fmt.Sprintf(
+					"litellm.%s is managed by InferenceHub and will be overridden — remove it from inferencehub.yaml", k))
+			}
+		}
+
+		// Warn if user enables the bundled Redis subchart — it will be forced off
+		if v, set := cfg.LiteLLM["redis"]; set {
+			if redisMap, ok := v.(map[string]interface{}); ok {
+				if enabled, ok := redisMap["enabled"].(bool); ok && enabled {
+					warnings = append(warnings, "litellm.redis.enabled: true will be overridden to false — InferenceHub provides a dedicated Redis for LiteLLM (redis.litellm) wired via the litellm-env secret")
+				}
+			}
+		}
+
+		// Warn if model_list is set directly (should come from models: section)
+		if pc, ok := cfg.LiteLLM["proxy_config"].(map[string]interface{}); ok {
+			if _, set := pc["model_list"]; set {
+				warnings = append(warnings, "litellm.proxy_config.model_list is generated from the models: section — remove it from inferencehub.yaml")
+			}
+		}
 	}
 
 	return nil, warnings

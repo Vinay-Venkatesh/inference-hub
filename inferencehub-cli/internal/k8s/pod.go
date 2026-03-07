@@ -49,19 +49,49 @@ func (c *Client) WaitForPodsReady(ctx context.Context, namespace, labelSelector 
 		}
 
 		allReady := true
+		foundAny := false
 		for _, pod := range pods.Items {
+			// Skip pods that are being deleted
+			if pod.DeletionTimestamp != nil {
+				continue
+			}
+			// Skip pods owned by a Job (e.g. migrations)
+			isJobPod := false
+			for _, owner := range pod.OwnerReferences {
+				if owner.Kind == "Job" {
+					isJobPod = true
+					break
+				}
+			}
+			if isJobPod {
+				continue
+			}
+			foundAny = true
 			if !c.IsPodReady(&pod) {
 				allReady = false
 				break
 			}
 		}
 
-		if allReady {
+		if foundAny && allReady {
 			return nil
 		}
 
-		// Check if any pods are in failed state
+		// Check if any pods are in failed state (excluding terminating and job pods)
 		for _, pod := range pods.Items {
+			if pod.DeletionTimestamp != nil {
+				continue
+			}
+			isJobPod := false
+			for _, owner := range pod.OwnerReferences {
+				if owner.Kind == "Job" {
+					isJobPod = true
+					break
+				}
+			}
+			if isJobPod {
+				continue
+			}
 			if pod.Status.Phase == corev1.PodFailed {
 				return fmt.Errorf("pod %s/%s is in failed state", namespace, pod.Name)
 			}

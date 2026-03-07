@@ -1,4 +1,4 @@
-{{- if and .Values.networking.gatewayAPI.enabled .Values.networking.gatewayAPI.createReferenceGrant }}
+{{- if and .Values.networking.gatewayAPI.enabled .Values.networking.gatewayAPI.tls.enabled }}
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
@@ -13,8 +13,5 @@ spec:
       namespace: {{ .Values.networking.gatewayAPI.gatewayRef.namespace }}
   to:
     - group: ""
-      kind: Service
-      {{- if .Values.networking.gatewayAPI.referenceGrant.serviceNames }}
-      name: {{ include "inferencehub.fullname" . }}-openwebui
-      {{- end }}
+      kind: Secret
 {{- end }}

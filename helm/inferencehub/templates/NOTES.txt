@@ -10,10 +10,15 @@ Components deployed:
   {{- else }}
   - PostgreSQL        (Database - external)
   {{- end }}
-  {{- if and .Values.redis.enabled (not .Values.redis.external.enabled) }}
-  - Redis             (Cache - in-cluster)
+  {{- if and .Values.redis.openwebui.enabled (not .Values.redis.openwebui.external.enabled) }}
+  - Redis (OpenWebUI) (Cache - in-cluster)
   {{- else }}
-  - Redis             (Cache - external)
+  - Redis (OpenWebUI) (Cache - external)
+  {{- end }}
+  {{- if and .Values.redis.litellm.enabled (not .Values.redis.litellm.external.enabled) }}
+  - Redis (LiteLLM)   (Cache - in-cluster)
+  {{- else }}
+  - Redis (LiteLLM)   (Cache - external)
   {{- end }}
   {{- if .Values.observability.langfuse.enabled }}
   - Langfuse          (LLM Observability)

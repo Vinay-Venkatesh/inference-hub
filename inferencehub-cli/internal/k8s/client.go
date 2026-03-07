@@ -133,19 +133,15 @@ func (c *Client) GetAvailableStorageClasses(ctx context.Context) ([]string, erro
 	return storageClasses, nil
 }
 
-// GetDefaultStorageClass returns the default storage class or a suitable fallback
+// GetDefaultStorageClass returns the storage class annotated as the cluster default
+// (storageclass.kubernetes.io/is-default-class: "true"). Returns ("", nil) when no
+// storage class carries the default annotation so callers can skip injection cleanly.
 func (c *Client) GetDefaultStorageClass(ctx context.Context) (string, error) {
 	scList, err := c.Clientset.StorageV1().StorageClasses().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return "", fmt.Errorf("failed to list storage classes: %w", err)
 	}
 
-	if len(scList.Items) == 0 {
-		return "", fmt.Errorf("no storage classes found in cluster")
-	}
-
-	// Priority order for selecting storage class
-	// 1. Check for default storage class annotation
 	for _, sc := range scList.Items {
 		if sc.Annotations["storageclass.kubernetes.io/is-default-class"] == "true" ||
 			sc.Annotations["storageclass.beta.kubernetes.io/is-default-class"] == "true" {
@@ -153,18 +149,8 @@ func (c *Client) GetDefaultStorageClass(ctx context.Context) (string, error) {
 		}
 	}
 
-	// 2. Look for common AWS storage classes (gp3 > gp2 > standard)
-	preferredSC := []string{"gp3", "gp2", "standard"}
-	for _, preferred := range preferredSC {
-		for _, sc := range scList.Items {
-			if sc.Name == preferred {
-				return sc.Name, nil
-			}
-		}
-	}
-
-	// 3. Return the first available storage class
-	return scList.Items[0].Name, nil
+	// No default annotation found — caller will skip storage class injection.
+	return "", nil
 }
 
 // StorageClassExists checks if a storage class exists

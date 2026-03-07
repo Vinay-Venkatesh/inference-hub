@@ -24,6 +24,14 @@ type Config struct {
 	// Can be overridden at runtime with the --cloud-provider CLI flag.
 	CloudProvider string `yaml:"cloudProvider,omitempty" json:"cloudProvider,omitempty"`
 
+	// StorageClass is the Kubernetes StorageClass to use for all PVCs
+	// (OpenWebUI, PostgreSQL, Redis). Useful when the cluster has no default
+	// StorageClass annotation, or when you want to pin a specific class (e.g. "gp2").
+	// Component-level values in the openwebui:/litellm: passthrough blocks or a
+	// -f values file take precedence over this field.
+	// Leave empty to rely on cluster default annotation auto-detection.
+	StorageClass string `yaml:"storageClass,omitempty" json:"storageClass,omitempty"`
+
 	// ChartPath is an optional override to the Helm chart path
 	ChartPath string `yaml:"chartPath,omitempty" json:"chartPath,omitempty"`
 
@@ -42,14 +50,37 @@ type Config struct {
 	// PostgreSQL configures the database; empty URL means use in-cluster container
 	PostgreSQL DatastoreConfig `yaml:"postgresql,omitempty" json:"postgresql,omitempty"`
 
-	// Redis configures the cache; empty URL means use in-cluster container
-	Redis DatastoreConfig `yaml:"redis,omitempty" json:"redis,omitempty"`
+	// Redis configures separate caches for OpenWebUI and LiteLLM.
+	// Each app gets its own Redis to avoid eviction policy conflicts.
+	// Empty URL means use in-cluster container for that app.
+	Redis RedisConfig `yaml:"redis,omitempty" json:"redis,omitempty"`
 
 	// Observability configures optional LLM observability (Langfuse)
 	Observability ObservabilityConfig `yaml:"observability,omitempty" json:"observability,omitempty"`
 
 	// AWS holds AWS-specific settings used when cloudProvider is "aws".
 	AWS AWSConfig `yaml:"aws,omitempty" json:"aws,omitempty"`
+
+	// WebSearch enables in-cluster web search for OpenWebUI via SearXNG.
+	// When enabled, a SearXNG instance is deployed and wired to OpenWebUI automatically.
+	WebSearch WebSearchConfig `yaml:"webSearch,omitempty" json:"webSearch,omitempty"`
+
+	// OpenWebUI is a raw passthrough to the open-webui subchart values.
+	// Values are merged with InferenceHub's required injections.
+	// Always overridden (do not set): openaiBaseApiUrl, ollama.enabled,
+	// websocket.url (computed from redis: config), websocket.redis.enabled,
+	// extraEnvVars entries for DATABASE_URL and OPENAI_API_KEY.
+	// websocket.redis.* sub-fields (image, resources, labels) are ignored — InferenceHub's Redis is used.
+	// Safe to set: websocket.enabled, websocket.nodeSelector, pipelines.enabled, and all other keys.
+	// Reference: https://github.com/open-webui/helm-charts/blob/main/charts/open-webui/values.yaml
+	OpenWebUI map[string]interface{} `yaml:"openwebui,omitempty" json:"openwebui,omitempty"`
+
+	// LiteLLM is a raw passthrough to the litellm-helm subchart values.
+	// Values are merged with InferenceHub's required injections.
+	// Protected keys (masterkeySecretName, db.deployStandalone, environmentSecrets entry for
+	// inferencehub-litellm-env, and proxy_config.model_list) are always overridden.
+	// Reference: https://github.com/BerriAI/litellm/blob/main/deploy/charts/litellm-helm/values.yaml
+	LiteLLM map[string]interface{} `yaml:"litellm,omitempty" json:"litellm,omitempty"`
 }
 
 // GatewayConfig references the Gateway resource managed by the prerequisites script.
@@ -66,6 +97,7 @@ type VersionConfig struct {
 	LiteLLM    string `yaml:"litellm,omitempty" json:"litellm,omitempty"`
 	PostgreSQL string `yaml:"postgresql,omitempty" json:"postgresql,omitempty"`
 	Redis      string `yaml:"redis,omitempty" json:"redis,omitempty"`
+	SearXNG    string `yaml:"searxng,omitempty" json:"searxng,omitempty"`
 }
 
 // ModelsConfig holds model definitions grouped by provider.
@@ -137,11 +169,79 @@ type DatastoreConfig struct {
 	Username string `yaml:"username,omitempty" json:"username,omitempty"`
 	// Password supports ${ENV_VAR} syntax for environment variable interpolation
 	Password string `yaml:"password,omitempty" json:"password,omitempty"`
+
+	// For external PostgreSQL only: per-app connection strings.
+	// If set, these take precedence over URL/Username/Password.
+	OpenWebUIConnectionString string `yaml:"openwebuiConnectionString,omitempty" json:"openwebuiConnectionString,omitempty"`
+	LiteLLMConnectionString   string `yaml:"litellmConnectionString,omitempty" json:"litellmConnectionString,omitempty"`
 }
 
 // IsExternal returns true when an external datastore URL is provided.
 func (d *DatastoreConfig) IsExternal() bool {
-	return d.URL != ""
+	return d.URL != "" || d.OpenWebUIConnectionString != "" || d.LiteLLMConnectionString != ""
+}
+
+// RedisConfig holds per-app Redis connection settings.
+// InferenceHub deploys separate Redis instances for OpenWebUI and LiteLLM
+// to avoid eviction policy conflicts (session state vs. API caching).
+type RedisConfig struct {
+	// OpenWebUI configures the Redis used by OpenWebUI for websocket session state.
+	// Recommended eviction policy: noeviction or volatile-lru.
+	OpenWebUI RedisAppConfig `yaml:"openwebui,omitempty" json:"openwebui,omitempty"`
+
+	// LiteLLM configures the Redis used by LiteLLM for API response caching.
+	// Recommended eviction policy: allkeys-lru.
+	LiteLLM RedisAppConfig `yaml:"litellm,omitempty" json:"litellm,omitempty"`
+}
+
+// RedisAppConfig configures a single Redis instance for one application.
+// If URL is empty, the in-cluster container is used.
+// Use ${VAR} syntax to reference environment variables for passwords.
+type RedisAppConfig struct {
+	// URL is the full Redis connection URL (e.g., redis://host:6379).
+	// Set to use an external Redis; leave empty for in-cluster.
+	URL string `yaml:"url,omitempty" json:"url,omitempty"`
+	// Password supports ${ENV_VAR} syntax for environment variable interpolation.
+	Password string `yaml:"password,omitempty" json:"password,omitempty"`
+}
+
+// IsExternal returns true when an external Redis URL is provided.
+func (r *RedisAppConfig) IsExternal() bool {
+	return r.URL != ""
+}
+
+// WebSearchConfig enables web search for OpenWebUI.
+// If external.enabled is false, an in-cluster SearXNG instance is deployed automatically.
+// If external.enabled is true, the specified engine and credentials are used instead.
+type WebSearchConfig struct {
+	// Enabled activates web search in OpenWebUI.
+	Enabled bool `yaml:"enabled" json:"enabled"`
+
+	// Engine is the search backend to use. Defaults to "searxng".
+	// Supported: searxng, brave, bing, tavily, google_pse, duckduckgo
+	Engine string `yaml:"engine,omitempty" json:"engine,omitempty"`
+
+	// External configures a user-supplied search engine.
+	// Leave disabled to have InferenceHub deploy SearXNG in-cluster (searxng engine only).
+	External WebSearchExternal `yaml:"external,omitempty" json:"external,omitempty"`
+}
+
+// WebSearchExternal holds credentials for a user-supplied search engine.
+type WebSearchExternal struct {
+	// Enabled switches from in-cluster SearXNG to the user-supplied engine.
+	Enabled bool `yaml:"enabled" json:"enabled"`
+
+	// QueryUrl is the full search query URL with a <query> placeholder.
+	// Required for: searxng (e.g. https://searxng.example.com/search?q=<query>&format=json)
+	QueryUrl string `yaml:"queryUrl,omitempty" json:"queryUrl,omitempty"`
+
+	// ApiKey is the API key for the search engine.
+	// Required for: brave, bing, tavily, google_pse
+	// Supports ${ENV_VAR} syntax for environment variable interpolation.
+	ApiKey string `yaml:"apiKey,omitempty" json:"apiKey,omitempty"`
+
+	// EngineId is the search engine ID. Required for: google_pse only.
+	EngineId string `yaml:"engineId,omitempty" json:"engineId,omitempty"`
 }
 
 // ObservabilityConfig configures optional LLM observability.

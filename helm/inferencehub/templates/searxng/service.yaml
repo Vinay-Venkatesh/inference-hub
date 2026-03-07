@@ -1,0 +1,18 @@
+{{- if .Values.searxng.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "inferencehub.searxng.serviceName" . }}
+  namespace: {{ include "inferencehub.namespace" . }}
+  labels:
+    {{- include "inferencehub.searxng.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.searxng.service.type }}
+  selector:
+    {{- include "inferencehub.searxng.selectorLabels" . | nindent 4 }}
+  ports:
+    - port: {{ .Values.searxng.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+{{- end }}

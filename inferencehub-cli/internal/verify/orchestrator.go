@@ -53,10 +53,17 @@ func (o *Orchestrator) verifyPods(ctx context.Context) VerificationResult {
 	result := VerificationResult{Step: "Pod Health"}
 
 	componentSelectors := map[string]string{
-		"openwebui":  "app.kubernetes.io/component=ui",
-		"litellm":    "app.kubernetes.io/component=gateway",
-		"postgresql": "app.kubernetes.io/component=database",
-		"redis":      "app.kubernetes.io/component=cache",
+		"openwebui":       "app.kubernetes.io/name=openwebui,app.kubernetes.io/instance=inferencehub",
+		"litellm":         "app.kubernetes.io/name=litellm,app.kubernetes.io/instance=inferencehub",
+		"postgresql":      "app.kubernetes.io/component=database,app.kubernetes.io/instance=inferencehub",
+		"redis-openwebui": "app.kubernetes.io/component=cache-openwebui,app.kubernetes.io/instance=inferencehub",
+		"redis-litellm":   "app.kubernetes.io/component=cache-litellm,app.kubernetes.io/instance=inferencehub",
+	}
+
+	// Include SearXNG only when deployed (web search enabled)
+	searxngDeployed, _ := o.k8sClient.ServiceExists(ctx, o.config.EffectiveNamespace(), "inferencehub-searxng")
+	if searxngDeployed {
+		componentSelectors["searxng"] = "app.kubernetes.io/component=websearch,app.kubernetes.io/instance=inferencehub"
 	}
 
 	for name, selector := range componentSelectors {
@@ -93,11 +100,17 @@ func (o *Orchestrator) verifyServices(ctx context.Context) VerificationResult {
 
 	// Release name defaults to "inferencehub" when installed with default release name
 	releaseName := "inferencehub"
+	searxngDeployed, _ := o.k8sClient.ServiceExists(ctx, o.config.EffectiveNamespace(), fmt.Sprintf("%s-searxng", releaseName))
+
 	services := []string{
 		fmt.Sprintf("%s-openwebui", releaseName),
 		fmt.Sprintf("%s-litellm", releaseName),
 		fmt.Sprintf("%s-postgresql", releaseName),
-		fmt.Sprintf("%s-redis", releaseName),
+		fmt.Sprintf("%s-redis-openwebui", releaseName),
+		fmt.Sprintf("%s-redis-litellm", releaseName),
+	}
+	if searxngDeployed {
+		services = append(services, fmt.Sprintf("%s-searxng", releaseName))
 	}
 
 	for _, svc := range services {

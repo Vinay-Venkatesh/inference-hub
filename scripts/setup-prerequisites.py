@@ -331,7 +331,41 @@ spec:
 """)
         log_ok("EnvoyProxy created")
 
-    # Gateway
+    # Namespace + ReferenceGrant — must exist BEFORE the Gateway is created so
+    # that Envoy Gateway can resolve the cross-namespace TLS secret ref on its
+    # first reconcile. Creating the Gateway first causes an immediate
+    # RefNotPermitted condition that may not self-heal until the controller
+    # restarts.
+    log_info(f"Ensuring namespace '{platform_namespace}' exists...")
+    if not _dry_run:
+        subprocess.run(
+            ["kubectl", "create", "namespace", platform_namespace],
+            capture_output=True,  # suppress "already exists" noise
+        )
+
+    if resource_exists("referencegrant", "allow-gateway-tls", platform_namespace):
+        log_ok(f"ReferenceGrant 'allow-gateway-tls' already exists in {platform_namespace}")
+    else:
+        log_info("Creating ReferenceGrant (Gateway → Secret cross-namespace TLS)...")
+        run(["kubectl", "apply", "-f", "-"], stdin=f"""\
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-gateway-tls
+  namespace: {platform_namespace}
+spec:
+  from:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      namespace: {gateway_namespace}
+  to:
+    - group: ""
+      kind: Secret
+""")
+        log_ok(f"ReferenceGrant created — Gateway can now reference TLS secrets in {platform_namespace}")
+
+    # Gateway — created after the ReferenceGrant so the HTTPS listener resolves
+    # cleanly on first reconcile.
     if resource_exists("gateway", gateway_name, gateway_namespace):
         log_ok(f"Gateway '{gateway_name}' already exists")
     else:
@@ -365,38 +399,6 @@ spec:
           from: All
 """)
         log_ok(f"Gateway '{gateway_name}' created")
-
-    # ReferenceGrant — permits the Gateway in gateway_namespace to reference the
-    # TLS Secret in platform_namespace. Without this the HTTPS listener reports
-    # RefNotPermitted and the Gateway is never Programmed.
-    if resource_exists("referencegrant", "allow-gateway-tls", platform_namespace):
-        log_ok(f"ReferenceGrant 'allow-gateway-tls' already exists in {platform_namespace}")
-    else:
-        log_info(f"Ensuring namespace '{platform_namespace}' exists...")
-        if not _dry_run:
-            # create namespace idempotently
-            subprocess.run(
-                ["kubectl", "create", "namespace", platform_namespace],
-                capture_output=True,  # suppress "already exists" noise
-            )
-
-        log_info("Creating ReferenceGrant (Gateway → Secret cross-namespace TLS)...")
-        run(["kubectl", "apply", "-f", "-"], stdin=f"""\
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: ReferenceGrant
-metadata:
-  name: allow-gateway-tls
-  namespace: {platform_namespace}
-spec:
-  from:
-    - group: gateway.networking.k8s.io
-      kind: Gateway
-      namespace: {gateway_namespace}
-  to:
-    - group: ""
-      kind: Secret
-""")
-        log_ok(f"ReferenceGrant created — Gateway can now reference TLS secrets in {platform_namespace}")
 
 
 # ── Step 6: AWS Load Balancer Controller ──────────────────────────────────────
@@ -469,11 +471,20 @@ def print_summary(domain: str, environment: str, gateway_name: str, gateway_name
   environment: {environment}  # issuerType: {issuer}
 
 {BOLD}Next steps:{NC}
-  1. Point your DNS: {domain} → <NLB hostname>
+  1. Wait for the Gateway to be provisioned with an NLB address (1-3 min):
+     kubectl get gateway {gateway_name} -n {gateway_namespace}
+
+     The HTTPS listener will show a condition like:
+       Reason: ResolvedRefs / Status: False / "secret not found"
+     This is expected — the TLS secret is issued by cert-manager during
+     'inferencehub install'. The listener becomes Ready automatically once
+     the certificate is issued.
+
+  2. Point your DNS: {domain} → <NLB hostname>
      kubectl get gateway {gateway_name} -n {gateway_namespace} \\
        -o jsonpath='{{.status.addresses[0].value}}'
 
-  2. Install InferenceHub:
+  3. Install InferenceHub:
      inferencehub install --config inferencehub.yaml
 """)
 

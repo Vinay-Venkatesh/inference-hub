@@ -6,11 +6,33 @@ global:
 
 ###########################################
 # OpenWebUI - Chat Interface
+# Full reference: https://github.com/open-webui/helm-charts/blob/main/charts/open-webui/values.yaml
+# Keys managed by InferenceHub CLI (do not set — will be overridden):
+#   openaiBaseApiUrl, extraEnvVars[DATABASE_URL], extraEnvVars[OPENAI_API_KEY]
+#   websocket.redis.enabled, websocket.url, ollama.enabled
+# To enable OpenWebUI Pipelines, set pipelines.enabled: true here or in inferencehub.yaml
 ###########################################
 openwebui:
+  # Disable subcharts that InferenceHub replaces with shared infrastructure
+  ollama:
+    enabled: false
+  pipelines:
+    enabled: false
+
+  # Websocket: InferenceHub always sets websocket.url to its own Redis.
+  # - websocket.url         → computed by CLI from your redis: config (do not set)
+  # - websocket.redis.*     → entire block is ignored; InferenceHub's Redis is used instead
+  # - websocket.enabled     → safe to override (set false to disable websockets entirely)
+  # - websocket.nodeSelector → safe to override
+  websocket:
+    enabled: true
+    manager: redis
+    redis:
+      enabled: false
+
   image:
     repository: ghcr.io/open-webui/open-webui
-    tag: "v0.8.5"
+    tag: ""             # set by versions.openwebui in inferencehub.yaml
     pullPolicy: IfNotPresent
 
   replicaCount: 1
@@ -18,13 +40,7 @@ openwebui:
   service:
     type: ClusterIP
     port: 80
-    targetPort: 8080
-
-  env:
-    enableOllama: false
-    ollamaBaseUrl: ""
-    enableExternalConnections: false
-    webuiDisableProviderDiscovery: true
+    containerPort: 8080
 
   resources:
     requests:
@@ -34,13 +50,37 @@ openwebui:
       cpu: 500m
       memory: 1.5Gi
 
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClass: ""
+
 ###########################################
 # LiteLLM - LLM Gateway
+# Full reference: https://github.com/BerriAI/litellm/blob/main/deploy/charts/litellm-helm/values.yaml
+# Keys managed by InferenceHub CLI (do not set — will be overridden):
+#   masterkeySecretName, masterkeySecretKey
+#   environmentSecrets (inferencehub-litellm-env is always present)
+#   db.deployStandalone, proxy_config.model_list
 ###########################################
 litellm:
+  # Disable bundled PostgreSQL — InferenceHub provides a shared instance
+  db:
+    deployStandalone: false
+    useExisting: true
+
+  # Disable bundled Redis — InferenceHub provides a shared instance
+  redis:
+    enabled: false
+
+  # Master key: reference InferenceHub's existing secret
+  # masterkeySecretName and masterkeySecretKey set by CLI
+  masterkeySecretName: ""
+  masterkeySecretKey: ""
+
   image:
-    repository: ghcr.io/berriai/litellm
-    tag: "main-v1.81.12-stable.2"
+    repository: ghcr.io/berriai/litellm-database
+    tag: ""             # set by versions.litellm in inferencehub.yaml
     pullPolicy: IfNotPresent
 
   replicaCount: 1
@@ -48,46 +88,14 @@ litellm:
   service:
     type: ClusterIP
     port: 4000
-    targetPort: 4000
-
-  # REQUIRED: Set via LITELLM_MASTER_KEY environment variable
-  masterKey: ""
-
-  # AWS region for Bedrock models
-  awsRegion: "us-east-1"
 
   serviceAccount:
     create: true
-    name: "litellm-sa"
-    # IRSA annotation (AWS-only) - set in values-aws.yaml
-    annotations: {}
+    annotations: {}     # IRSA annotation injected by CLI when aws.litellmRoleArn is set
 
-  # Models defined here are passed directly to LiteLLM config.yaml
-  # Managed by the CLI from config.yaml models block
-  models: []
-
-  # Pass-through for custom litellm_settings
-  litellmSettings: {}
-
-  livenessProbe:
-    httpGet:
-      path: /health/liveliness
-      port: 4000
-    initialDelaySeconds: 120
-    periodSeconds: 15
-    successThreshold: 1
-    failureThreshold: 3
-    timeoutSeconds: 10
-
-  readinessProbe:
-    httpGet:
-      path: /health/readiness
-      port: 4000
-    initialDelaySeconds: 120
-    periodSeconds: 15
-    successThreshold: 1
-    failureThreshold: 3
-    timeoutSeconds: 10
+  proxy_config:
+    model_list: []      # always overridden by CLI from inferencehub.yaml models: section
+    general_settings: {}
 
   resources:
     requests:
@@ -106,14 +114,9 @@ postgresql:
 
   external:
     enabled: false
-    # Full connection string takes precedence over individual fields
-    connectionString: ""
-    host: ""
-    port: 5432
-    database: "inferencehub"
-    username: ""
-    # REQUIRED when using external: set via POSTGRES_PASSWORD env var
-    password: ""
+    # Per-app connection strings (required when external.enabled is true)
+    openwebuiConnectionString: ""   # postgresql://user:pass@host:5432/openwebui
+    litellmConnectionString: ""     # postgresql://user:pass@host:5432/litellm
 
   image:
     repository: postgres
@@ -121,7 +124,6 @@ postgresql:
     pullPolicy: IfNotPresent
 
   auth:
-    database: inferencehub
     username: inferencehub
     # REQUIRED: set via POSTGRES_PASSWORD env var
     password: ""
@@ -143,45 +145,115 @@ postgresql:
 
 ###########################################
 # Redis - Caching
+# InferenceHub deploys two separate Redis instances to avoid eviction policy
+# conflicts: OpenWebUI needs session-safe eviction (noeviction/volatile-lru),
+# while LiteLLM benefits from allkeys-lru for API response caching.
+# Each app can independently point to an external Redis if preferred.
 ###########################################
 redis:
-  # Set to false when using external Redis (ElastiCache, Upstash, etc.)
-  enabled: true
+  openwebui:
+    # Set to false when using external Redis for OpenWebUI (ElastiCache, Upstash, etc.)
+    enabled: true
 
-  external:
-    enabled: false
-    host: ""
-    port: 6379
-    # Set via REDIS_PASSWORD env var if auth required
-    password: ""
+    external:
+      enabled: false
+      host: ""
+      port: 6379
+      # Set via OPENWEBUI_REDIS_PASSWORD env var if auth required
+      password: ""
+
+    image:
+      repository: redis
+      tag: "8-alpine"
+      pullPolicy: IfNotPresent
+
+    service:
+      type: ClusterIP
+      port: 6379
+
+    auth:
+      # Leave empty for no auth (default for in-cluster Redis)
+      # Set via OPENWEBUI_REDIS_PASSWORD env var if needed
+      password: ""
+
+    persistence:
+      enabled: false
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 2Gi
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+  litellm:
+    # Set to false when using external Redis for LiteLLM (ElastiCache, Upstash, etc.)
+    enabled: true
+
+    external:
+      enabled: false
+      host: ""
+      port: 6379
+      # Set via LITELLM_REDIS_PASSWORD env var if auth required
+      password: ""
+
+    image:
+      repository: redis
+      tag: "8-alpine"
+      pullPolicy: IfNotPresent
+
+    service:
+      type: ClusterIP
+      port: 6379
+
+    auth:
+      # Leave empty for no auth (default for in-cluster Redis)
+      # Set via LITELLM_REDIS_PASSWORD env var if needed
+      password: ""
+
+    persistence:
+      enabled: false
+      storageClass: ""
+      accessMode: ReadWriteOnce
+      size: 2Gi
+
+    resources:
+      requests:
+        cpu: 50m
+        memory: 64Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+
+###########################################
+# SearXNG - Web Search (optional)
+# Enables web search inside OpenWebUI via a self-hosted SearXNG metasearch engine.
+# Set webSearch.enabled: true in inferencehub.yaml to activate.
+###########################################
+searxng:
+  enabled: false
+  secretKey: "ultrasecretkey" # Should be overridden by CLI
 
   image:
-    repository: redis
-    tag: "8-alpine"
+    repository: searxng/searxng
+    tag: "2026.3.6-0716de6bc"
     pullPolicy: IfNotPresent
 
   service:
     type: ClusterIP
-    port: 6379
-
-  auth:
-    # Leave empty for no auth (default for in-cluster Redis)
-    # Set via REDIS_PASSWORD env var if needed
-    password: ""
-
-  persistence:
-    enabled: false
-    storageClass: ""
-    accessMode: ReadWriteOnce
-    size: 5Gi
+    port: 8080
 
   resources:
     requests:
       cpu: 50m
-      memory: 64Mi
-    limits:
-      cpu: 100m
       memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
 
 ###########################################
 # Networking - Gateway API

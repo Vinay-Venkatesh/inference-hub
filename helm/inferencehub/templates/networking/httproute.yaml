@@ -21,6 +21,6 @@ spec:
             type: PathPrefix
             value: /
       backendRefs:
-        - name: {{ include "inferencehub.fullname" . }}-openwebui
+        - name: {{ include "inferencehub.openwebui.serviceName" . }}
           port: {{ .Values.openwebui.service.port }}
 {{- end }}
