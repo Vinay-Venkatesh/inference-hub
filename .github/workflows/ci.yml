@@ -27,6 +27,24 @@ jobs:
       - name: Lint chart (local values)
         run: helm lint helm/inferencehub/ -f helm/inferencehub/values-local.yaml
 
+  helm-template:
+    name: Helm template (strict)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+      - name: Update chart dependencies
+        run: helm dependency update helm/inferencehub/ --skip-refresh
+      - name: Template chart (default values)
+        run: helm template inferencehub helm/inferencehub/ --strict
+      - name: Template chart (AWS values)
+        run: helm template inferencehub helm/inferencehub/ --strict -f helm/inferencehub/values-aws.yaml
+      - name: Template chart (local values)
+        run: helm template inferencehub helm/inferencehub/ --strict -f helm/inferencehub/values-local.yaml
+
   go-build:
     name: Go build & vet
     runs-on: ubuntu-latest
@@ -50,6 +68,12 @@ jobs:
       - name: Test
         working-directory: inferencehub-cli
         run: go test ./...
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.61.0
+          working-directory: inferencehub-cli
 
   python-lint:
     name: Python scripts
