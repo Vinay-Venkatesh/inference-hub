@@ -33,7 +33,9 @@ jobs:
         uses: azure/setup-helm@v4
         with:
           version: v3.14.0
-      - name: Update dependencies
+      - name: Add Helm repositories
+        run: helm repo add openwebui https://helm.openwebui.com/
+      - name: Download chart dependencies
         run: helm dependency update helm/inferencehub/
       - name: Lint
         run: helm lint helm/inferencehub/
@@ -52,10 +54,14 @@ jobs:
           version: v3.14.0
       - name: Log in to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ghcr.io -u ${{ github.actor }} --password-stdin
-      - name: Update chart dependencies
-        run: helm dependency update helm/inferencehub/ --skip-refresh
+      - name: Add Helm repositories
+        run: helm repo add openwebui https://helm.openwebui.com/
+      - name: Download chart dependencies
+        run: helm dependency update helm/inferencehub/
       - name: Package chart
-        run: helm package helm/inferencehub/ --destination /tmp/helm-charts/
+        run: |
+          mkdir -p /tmp/helm-charts
+          helm package helm/inferencehub/ --destination /tmp/helm-charts/
       - name: Push chart to OCI registry
         run: |
           CHART_VERSION=$(helm show chart helm/inferencehub/ | grep '^version:' | awk '{print $2}')

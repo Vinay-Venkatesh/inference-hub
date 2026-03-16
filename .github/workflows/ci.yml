@@ -18,6 +18,12 @@ jobs:
         with:
           version: v3.14.0
 
+      - name: Add Helm repositories
+        run: helm repo add openwebui https://helm.openwebui.com/
+
+      - name: Download chart dependencies
+        run: helm dependency update helm/inferencehub/
+
       - name: Lint chart
         run: helm lint helm/inferencehub/
 
@@ -36,8 +42,10 @@ jobs:
         uses: azure/setup-helm@v4
         with:
           version: v3.14.0
-      - name: Update chart dependencies
-        run: helm dependency update helm/inferencehub/ --skip-refresh
+      - name: Add Helm repositories
+        run: helm repo add openwebui https://helm.openwebui.com/
+      - name: Download chart dependencies
+        run: helm dependency update helm/inferencehub/
       - name: Template chart (default values)
         run: helm template inferencehub helm/inferencehub/ --strict
       - name: Template chart (AWS values)
@@ -72,7 +80,7 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
-          version: v1.61.0
+          version: latest
           working-directory: inferencehub-cli
 
   python-lint:
