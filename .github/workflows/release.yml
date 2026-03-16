@@ -39,8 +39,8 @@ jobs:
         run: helm dependency update helm/inferencehub/
       - name: Lint
         run: helm lint helm/inferencehub/
-      - name: Template (strict)
-        run: helm template inferencehub helm/inferencehub/ --strict
+      - name: Template chart
+        run: helm template inferencehub helm/inferencehub/
 
   publish-chart:
     name: Publish Helm chart to ghcr.io

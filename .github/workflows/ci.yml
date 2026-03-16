@@ -47,11 +47,11 @@ jobs:
       - name: Download chart dependencies
         run: helm dependency update helm/inferencehub/
       - name: Template chart (default values)
-        run: helm template inferencehub helm/inferencehub/ --strict
+        run: helm template inferencehub helm/inferencehub/
       - name: Template chart (AWS values)
-        run: helm template inferencehub helm/inferencehub/ --strict -f helm/inferencehub/values-aws.yaml
+        run: helm template inferencehub helm/inferencehub/ -f helm/inferencehub/values-aws.yaml
       - name: Template chart (local values)
-        run: helm template inferencehub helm/inferencehub/ --strict -f helm/inferencehub/values-local.yaml
+        run: helm template inferencehub helm/inferencehub/ -f helm/inferencehub/values-local.yaml
 
   go-build:
     name: Go build & vet
