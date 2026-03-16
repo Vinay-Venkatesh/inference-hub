@@ -160,11 +160,3 @@ func starterConfig() *config.Config {
 	}
 }
 
-func hasEnvVars() bool {
-	for _, v := range []string{"LITELLM_MASTER_KEY", "POSTGRES_PASSWORD", "REDIS_PASSWORD", "LANGFUSE_PUBLIC_KEY"} {
-		if os.Getenv(v) != "" {
-			return true
-		}
-	}
-	return false
-}
