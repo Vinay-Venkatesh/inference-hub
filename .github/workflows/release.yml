@@ -38,9 +38,9 @@ jobs:
       - name: Download chart dependencies
         run: helm dependency update helm/inferencehub/
       - name: Lint
-        run: helm lint helm/inferencehub/
+        run: helm lint helm/inferencehub/ -f helm/inferencehub/values-ci.yaml
       - name: Template chart
-        run: helm template inferencehub helm/inferencehub/
+        run: helm template inferencehub helm/inferencehub/ -f helm/inferencehub/values-ci.yaml
 
   publish-chart:
     name: Publish Helm chart to ghcr.io

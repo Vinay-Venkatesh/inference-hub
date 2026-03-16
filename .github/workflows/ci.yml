@@ -25,13 +25,13 @@ jobs:
         run: helm dependency update helm/inferencehub/
 
       - name: Lint chart
-        run: helm lint helm/inferencehub/
+        run: helm lint helm/inferencehub/ -f helm/inferencehub/values-ci.yaml
 
       - name: Lint chart (AWS values)
-        run: helm lint helm/inferencehub/ -f helm/inferencehub/values-aws.yaml
+        run: helm lint helm/inferencehub/ -f helm/inferencehub/values-ci.yaml -f helm/inferencehub/values-aws.yaml
 
       - name: Lint chart (local values)
-        run: helm lint helm/inferencehub/ -f helm/inferencehub/values-local.yaml
+        run: helm lint helm/inferencehub/ -f helm/inferencehub/values-ci.yaml -f helm/inferencehub/values-local.yaml
 
   helm-template:
     name: Helm template (strict)
@@ -47,11 +47,11 @@ jobs:
       - name: Download chart dependencies
         run: helm dependency update helm/inferencehub/
       - name: Template chart (default values)
-        run: helm template inferencehub helm/inferencehub/
+        run: helm template inferencehub helm/inferencehub/ -f helm/inferencehub/values-ci.yaml
       - name: Template chart (AWS values)
-        run: helm template inferencehub helm/inferencehub/ -f helm/inferencehub/values-aws.yaml
+        run: helm template inferencehub helm/inferencehub/ -f helm/inferencehub/values-ci.yaml -f helm/inferencehub/values-aws.yaml
       - name: Template chart (local values)
-        run: helm template inferencehub helm/inferencehub/ -f helm/inferencehub/values-local.yaml
+        run: helm template inferencehub helm/inferencehub/ -f helm/inferencehub/values-ci.yaml -f helm/inferencehub/values-local.yaml
 
   go-build:
     name: Go build & vet

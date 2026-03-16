@@ -1,0 +1,9 @@
+# Minimal values for CI helm template/lint validation.
+# Not for production use — provides stub values to satisfy required guards.
+
+networking:
+  gatewayAPI:
+    hostname: "ci.example.com"
+
+litellm:
+  masterKey: "sk-ci-test-key"
