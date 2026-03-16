@@ -18,7 +18,7 @@
       
       
       <link rel="icon" href="../images/logo.jpg">
-      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.4">
+      <meta name="generator" content="mkdocs-1.6.1, mkdocs-material-9.7.5">
     
     
       
@@ -91,10 +91,6 @@
     <div data-md-component="announce">
       
     </div>
-    
-      <div data-md-color-scheme="default" data-md-component="outdated" hidden="">
-        
-      </div>
     
     
       
@@ -302,6 +298,8 @@
       
         
       
+        
+      
     
     
     
@@ -392,6 +390,34 @@
     
   
     Prerequisites
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../helm-only-install/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Helm-only Install
   
 
     
@@ -560,6 +586,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
       
         <li class="md-nav__item">
+  <a href="#v021-test-and-publish" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.2.1 — Test and Publish
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.2.1 — Test and Publish">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whats-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's new
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v020-foundation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -583,7 +637,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#whats-new" class="md-nav__link">
+  <a href="#whats-new_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         What's new
@@ -738,6 +792,34 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix="">
       
         <li class="md-nav__item">
+  <a href="#v021-test-and-publish" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        v0.2.1 — Test and Publish
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="v0.2.1 — Test and Publish">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#whats-new" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        What's new
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#v020-foundation" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -761,7 +843,7 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#whats-new" class="md-nav__link">
+  <a href="#whats-new_1" class="md-nav__link">
     <span class="md-ellipsis">
       
         What's new
@@ -915,6 +997,22 @@
 
 
 <h1 id="changelog">Changelog<a class="headerlink" href="#changelog" title="Permanent link">¶</a></h1>
+<h2 id="v021-test-and-publish">v0.2.1 — Test and Publish<a class="headerlink" href="#v021-test-and-publish" title="Permanent link">¶</a></h2>
+<p><strong>March 16 2026</strong></p>
+<h3 id="whats-new">What's new<a class="headerlink" href="#whats-new" title="Permanent link">¶</a></h3>
+<p><strong>Test coverage for the CLI</strong>
+<code>GenerateOverrides</code> and config validation now have comprehensive unit test suites (22 and 15 test cases respectively). CI catches regressions automatically on every PR.</p>
+<p><strong>Published Helm chart</strong>
+The InferenceHub Helm chart is now published to <code>oci://ghcr.io/vinay-venkatesh/inferencehub</code>. Install without cloning the repository:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>helm<span class="w"> </span>install<span class="w"> </span>inferencehub<span class="w"> </span>oci://ghcr.io/vinay-venkatesh/inferencehub<span class="w"> </span>--version<span class="w"> </span><span class="m">0</span>.2.1<span class="w"> </span>-n<span class="w"> </span>inferencehub<span class="w"> </span>--create-namespace<span class="w"> </span>-f<span class="w"> </span>values.yaml
+</code></pre></div>
+<p><strong>Helm-only install guide</strong>
+ArgoCD, Flux, and GitOps users can now install InferenceHub without the CLI. See <code>docs/helm-only-install.md</code> for the complete guide including ArgoCD Application and Flux HelmRelease examples.</p>
+<p><strong>Automated release workflow</strong>
+Git tag pushes (<code>v*</code>) now automatically run tests, package and publish the Helm chart to ghcr.io, build CLI binaries for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, and create a GitHub Release with binaries attached.</p>
+<p><strong>CI enhancements</strong>
+PR CI now also runs <code>helm template --strict</code> (catches rendering errors that <code>helm lint</code> misses) and <code>golangci-lint</code>.</p>
+<hr>
 <h2 id="v020-foundation">v0.2.0 — Foundation<a class="headerlink" href="#v020-foundation" title="Permanent link">¶</a></h2>
 <p><strong>March 07 2026</strong></p>
 <h3 id="breaking-changes">Breaking changes<a class="headerlink" href="#breaking-changes" title="Permanent link">¶</a></h3>
@@ -922,22 +1020,22 @@
 <li><strong>Database split</strong>: the single <code>inferencehub</code> PostgreSQL database is now two separate databases — <code>openwebui</code> and <code>litellm</code>. Existing installations must run the migration script (<code>docs/upgrading/migrate-database.sh</code>) before upgrading.</li>
 <li><strong>External PostgreSQL config</strong>: <code>postgresql.external.connectionString</code> is replaced by <code>postgresql.external.openwebuiConnectionString</code> and <code>postgresql.external.litellmConnectionString</code>.</li>
 </ul>
-<h3 id="whats-new">What's new<a class="headerlink" href="#whats-new" title="Permanent link">¶</a></h3>
+<h3 id="whats-new_1">What's new<a class="headerlink" href="#whats-new_1" title="Permanent link">¶</a></h3>
 <p><strong>Web search with flexible engine support</strong>
 OpenWebUI can now perform web searches directly from the chat interface. InferenceHub deploys <a href="https://github.com/searxng/searxng">SearXNG</a> in-cluster by default — no external account or API key required. Users who already have a search engine can bring their own instead.</p>
 <p>Enable with a single config flag:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="nt">webSearch</span><span class="p">:</span>
-<a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">   </span><span class="c1"># deploys SearXNG in-cluster automatically</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">webSearch</span><span class="p">:</span>
+<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span><span class="w">   </span><span class="c1"># deploys SearXNG in-cluster automatically</span>
 </code></pre></div>
 <p>To use an external engine:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="nt">webSearch</span><span class="p">:</span>
-<a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="w">  </span><span class="nt">engine</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">brave</span><span class="w">          </span><span class="c1"># brave | bing | tavily | google_pse | duckduckgo | searxng</span>
-<a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="w">  </span><span class="nt">external</span><span class="p">:</span>
-<a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
-<a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="w">    </span><span class="nt">apiKey</span><span class="p">:</span><span class="w"> </span><span class="s">"${BRAVE_API_KEY}"</span>
-<a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="w">    </span><span class="c1"># queryUrl: "..."    # for external SearXNG instances</span>
-<a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a><span class="w">    </span><span class="c1"># engineId: "..."    # for google_pse only</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">webSearch</span><span class="p">:</span>
+<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="w">  </span><span class="nt">engine</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">brave</span><span class="w">          </span><span class="c1"># brave | bing | tavily | google_pse | duckduckgo | searxng</span>
+<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="w">  </span><span class="nt">external</span><span class="p">:</span>
+<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">    </span><span class="nt">enabled</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">true</span>
+<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">apiKey</span><span class="p">:</span><span class="w"> </span><span class="s">"${BRAVE_API_KEY}"</span>
+<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">    </span><span class="c1"># queryUrl: "..."    # for external SearXNG instances</span>
+<a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a><span class="w">    </span><span class="c1"># engineId: "..."    # for google_pse only</span>
 </code></pre></div>
 <p><strong>Upstream subcharts replace custom templates</strong>
 OpenWebUI and LiteLLM are now deployed via their official Helm subcharts:
@@ -946,13 +1044,13 @@ OpenWebUI and LiteLLM are now deployed via their official Helm subcharts:
 <p>This gives users the full feature set of each upstream chart — SSO, web search, pipelines, alerting, etc. — by adding values to <code>inferencehub.yaml</code> without waiting for InferenceHub to expose each option.</p>
 <p><strong>Full passthrough configuration</strong>
 Add an <code>openwebui:</code> or <code>litellm:</code> block to <code>inferencehub.yaml</code> to pass any value directly to the upstream chart:</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="nt">openwebui</span><span class="p">:</span>
-<a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="w">  </span><span class="nt">defaultUserRole</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pending</span><span class="w">   </span><span class="c1"># require admin approval for new users</span>
-<a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a>
-<a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="nt">litellm</span><span class="p">:</span>
-<a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="w">  </span><span class="nt">proxy_config</span><span class="p">:</span>
-<a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a><span class="w">    </span><span class="nt">litellm_settings</span><span class="p">:</span>
-<a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="w">      </span><span class="nt">request_timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="nt">openwebui</span><span class="p">:</span>
+<a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="w">  </span><span class="nt">defaultUserRole</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">pending</span><span class="w">   </span><span class="c1"># require admin approval for new users</span>
+<a id="__codelineno-3-3" name="__codelineno-3-3" href="#__codelineno-3-3"></a>
+<a id="__codelineno-3-4" name="__codelineno-3-4" href="#__codelineno-3-4"></a><span class="nt">litellm</span><span class="p">:</span>
+<a id="__codelineno-3-5" name="__codelineno-3-5" href="#__codelineno-3-5"></a><span class="w">  </span><span class="nt">proxy_config</span><span class="p">:</span>
+<a id="__codelineno-3-6" name="__codelineno-3-6" href="#__codelineno-3-6"></a><span class="w">    </span><span class="nt">litellm_settings</span><span class="p">:</span>
+<a id="__codelineno-3-7" name="__codelineno-3-7" href="#__codelineno-3-7"></a><span class="w">      </span><span class="nt">request_timeout</span><span class="p">:</span><span class="w"> </span><span class="l l-Scalar l-Scalar-Plain">600</span>
 </code></pre></div>
 <p>InferenceHub's required injections (database URLs, Redis wiring, master key, model list) are always applied on top.</p>
 <p><strong>LiteLLM connected to PostgreSQL by default</strong>
@@ -967,7 +1065,7 @@ Uses <code>ghcr.io/berriai/litellm-database</code> which bundles Prisma and data
 <p>Open-sourcing InferenceHub — a Kubernetes-native LLM control plane that deploys a complete, self-hosted AI inference stack with a single CLI command.</p>
 <h3 id="what-is-inferencehub">What is InferenceHub?<a class="headerlink" href="#what-is-inferencehub" title="Permanent link">¶</a></h3>
 <p>InferenceHub eliminates the operational overhead of running LLM infrastructure on Kubernetes. Instead of manually wiring together a chat interface, model gateway, database, cache, TLS, and observability — InferenceHub provisioner ship them as a single opinionated platform, configured through one YAML file and installed with one command.</p>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a>inferencehub install --config inferencehub.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a>inferencehub install --config inferencehub.yaml
 </code></pre></div>
 <hr>
 <h3 id="whats-included">What's included<a class="headerlink" href="#whats-included" title="Permanent link">¶</a></h3>
@@ -1094,20 +1192,20 @@ A single <code>inferencehub.yaml</code> drives the entire platform. Secrets stay
 </ul>
 <hr>
 <h3 id="getting-started">Getting started<a class="headerlink" href="#getting-started" title="Permanent link">¶</a></h3>
-<div class="highlight"><pre><span></span><code><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="c1"># 1. Install prerequisites (once per cluster)</span>
-<a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a>python3<span class="w"> </span>scripts/setup-prerequisites.py<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="w">  </span>--cluster-name<span class="w"> </span>my-cluster<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-4" name="__codelineno-4-4" href="#__codelineno-4-4"></a><span class="w">  </span>--domain<span class="w"> </span>inferencehub.ai<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-5" name="__codelineno-4-5" href="#__codelineno-4-5"></a><span class="w">  </span>--tls-email<span class="w"> </span>admin@inferencehub.ai<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-6" name="__codelineno-4-6" href="#__codelineno-4-6"></a><span class="w">  </span>--aws-lb-role-arn<span class="w"> </span>arn:aws:iam::123456789012:role/AWSLoadBalancerControllerRole
-<a id="__codelineno-4-7" name="__codelineno-4-7" href="#__codelineno-4-7"></a>
-<a id="__codelineno-4-8" name="__codelineno-4-8" href="#__codelineno-4-8"></a><span class="c1"># 2. Point DNS to the NLB before proceeding</span>
-<a id="__codelineno-4-9" name="__codelineno-4-9" href="#__codelineno-4-9"></a>kubectl<span class="w"> </span>get<span class="w"> </span>gateway<span class="w"> </span>inferencehub-gateway<span class="w"> </span>-n<span class="w"> </span>envoy-gateway-system<span class="w"> </span><span class="se">\</span>
-<a id="__codelineno-4-10" name="__codelineno-4-10" href="#__codelineno-4-10"></a><span class="w">  </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.addresses[0].value}'</span>
-<a id="__codelineno-4-11" name="__codelineno-4-11" href="#__codelineno-4-11"></a>
-<a id="__codelineno-4-12" name="__codelineno-4-12" href="#__codelineno-4-12"></a><span class="c1"># 3. Install</span>
-<a id="__codelineno-4-13" name="__codelineno-4-13" href="#__codelineno-4-13"></a><span class="nb">export</span><span class="w"> </span><span class="nv">LITELLM_MASTER_KEY</span><span class="o">=</span><span class="s2">"sk-..."</span>
-<a id="__codelineno-4-14" name="__codelineno-4-14" href="#__codelineno-4-14"></a>inferencehub<span class="w"> </span>install<span class="w"> </span>--config<span class="w"> </span>inferencehub.yaml
+<div class="highlight"><pre><span></span><code><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="c1"># 1. Install prerequisites (once per cluster)</span>
+<a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a>python3<span class="w"> </span>scripts/setup-prerequisites.py<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a><span class="w">  </span>--cluster-name<span class="w"> </span>my-cluster<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a><span class="w">  </span>--domain<span class="w"> </span>inferencehub.ai<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="w">  </span>--tls-email<span class="w"> </span>admin@inferencehub.ai<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-6" name="__codelineno-5-6" href="#__codelineno-5-6"></a><span class="w">  </span>--aws-lb-role-arn<span class="w"> </span>arn:aws:iam::123456789012:role/AWSLoadBalancerControllerRole
+<a id="__codelineno-5-7" name="__codelineno-5-7" href="#__codelineno-5-7"></a>
+<a id="__codelineno-5-8" name="__codelineno-5-8" href="#__codelineno-5-8"></a><span class="c1"># 2. Point DNS to the NLB before proceeding</span>
+<a id="__codelineno-5-9" name="__codelineno-5-9" href="#__codelineno-5-9"></a>kubectl<span class="w"> </span>get<span class="w"> </span>gateway<span class="w"> </span>inferencehub-gateway<span class="w"> </span>-n<span class="w"> </span>envoy-gateway-system<span class="w"> </span><span class="se">\</span>
+<a id="__codelineno-5-10" name="__codelineno-5-10" href="#__codelineno-5-10"></a><span class="w">  </span>-o<span class="w"> </span><span class="nv">jsonpath</span><span class="o">=</span><span class="s1">'{.status.addresses[0].value}'</span>
+<a id="__codelineno-5-11" name="__codelineno-5-11" href="#__codelineno-5-11"></a>
+<a id="__codelineno-5-12" name="__codelineno-5-12" href="#__codelineno-5-12"></a><span class="c1"># 3. Install</span>
+<a id="__codelineno-5-13" name="__codelineno-5-13" href="#__codelineno-5-13"></a><span class="nb">export</span><span class="w"> </span><span class="nv">LITELLM_MASTER_KEY</span><span class="o">=</span><span class="s2">"sk-..."</span>
+<a id="__codelineno-5-14" name="__codelineno-5-14" href="#__codelineno-5-14"></a>inferencehub<span class="w"> </span>install<span class="w"> </span>--config<span class="w"> </span>inferencehub.yaml
 </code></pre></div>
 <p>Full documentation: <a href="../getting-started/">Getting-Started</a></p>
 
@@ -1181,7 +1279,7 @@ A single <code>inferencehub.yaml</code> drives the entire platform. Secrets stay
     
       
       
-      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "navigation.tracking", "navigation.indexes", "navigation.expand", "search.highlight", "search.suggest", "content.code.copy", "content.code.annotate", "content.action.edit", "content.action.view"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": {"provider": "mike"}}</script>
+      <script id="__config" type="application/json">{"annotate": null, "base": "..", "features": ["navigation.sections", "navigation.top", "navigation.tracking", "navigation.indexes", "navigation.expand", "search.highlight", "search.suggest", "content.code.copy", "content.code.annotate", "content.action.edit", "content.action.view"], "search": "../assets/javascripts/workers/search.2c215733.min.js", "tags": null, "translations": {"clipboard.copied": "Copied to clipboard", "clipboard.copy": "Copy to clipboard", "search.result.more.one": "1 more on this page", "search.result.more.other": "# more on this page", "search.result.none": "No matching documents", "search.result.one": "1 matching document", "search.result.other": "# matching documents", "search.result.placeholder": "Type to start searching", "search.result.term.missing": "Missing", "select.version": "Select version"}, "version": null}</script>
     
     
       <script src="../assets/javascripts/bundle.79ae519e.min.js"></script>
