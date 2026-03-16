@@ -1,11 +1,12 @@
 module github.com/Vinay-Venkatesh/inferencehub-cli
 
-go 1.25.5
+go 1.24
 
 require (
 	github.com/AlecAivazis/survey/v2 v2.3.7
 	github.com/briandowns/spinner v1.23.2
 	github.com/fatih/color v1.18.0
+	github.com/joho/godotenv v1.5.1
 	github.com/spf13/cobra v1.10.2
 	helm.sh/helm/v3 v3.14.0
 	k8s.io/api v0.29.0
@@ -70,7 +71,6 @@ require (
 	github.com/imdario/mergo v0.3.16 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jmoiron/sqlx v1.3.5 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51 // indirect

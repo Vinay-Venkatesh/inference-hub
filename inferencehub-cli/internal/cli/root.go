@@ -42,8 +42,8 @@ var rootCmd = &cobra.Command{
 
   Supported model providers: AWS Bedrock, OpenAI, Ollama, Azure OpenAI
 `,
-	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return cmd.Help()
 	},
 }
 

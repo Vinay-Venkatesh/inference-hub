@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.2.1 — Test and Publish
+
+**March 16 2026**
+
+### What's new
+
+**Test coverage for the CLI**
+`GenerateOverrides` and config validation now have comprehensive unit test suites (22 and 15 test cases respectively). CI catches regressions automatically on every PR.
+
+**Published Helm chart**
+The InferenceHub Helm chart is now published to `oci://ghcr.io/vinay-venkatesh/inferencehub`. Install without cloning the repository:
+
+```bash
+helm install inferencehub oci://ghcr.io/vinay-venkatesh/inferencehub --version 0.2.1 -n inferencehub --create-namespace -f values.yaml
+```
+
+**Helm-only install guide**
+ArgoCD, Flux, and GitOps users can now install InferenceHub without the CLI. See `docs/helm-only-install.md` for the complete guide including ArgoCD Application and Flux HelmRelease examples.
+
+**Automated release workflow**
+Git tag pushes (`v*`) now automatically run tests, package and publish the Helm chart to ghcr.io, build CLI binaries for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, and create a GitHub Release with binaries attached.
+
+**CI enhancements**
+PR CI now also runs `helm template --strict` (catches rendering errors that `helm lint` misses) and `golangci-lint`.
+
+---
+
 ## v0.2.0 — Foundation
 
 **March 07 2026**

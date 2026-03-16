@@ -63,6 +63,7 @@ nav:
   - Getting Started:
     - Quick Start: getting-started.md
     - Prerequisites: prerequisites.md
+    - Helm-only Install: helm-only-install.md
   - Configuration: configuration.md
   - Infrastructure: infrastructure.md
   - CLI Reference: cli-reference.md
@@ -72,5 +73,3 @@ extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/Vinay-Venkatesh/inference-hub
-  version:
-    provider: mike
